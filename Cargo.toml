@@ -1,0 +1,19 @@
+[package]
+name = "leptos-spin"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures = "0.3.29"
+leptos = { version = "0.5", features = ["ssr"] }
+leptos_integration_utils = { version = "0.5.2" }
+leptos_meta = { version = "0.5", features = ["ssr"] }
+leptos_router = { version = "0.5", features = ["ssr"] }
+routefinder = { version = "0.5.3" }
+spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v2.0.1" }
+url = "2.4.1"
+
+[features]
+nonce = ["leptos/nonce"]
