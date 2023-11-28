@@ -48,7 +48,7 @@ async fn render_route<IV>(
     IV: leptos::IntoView + 'static,
 {
     if let Some(_static_mode) = listing.static_mode() {
-        todo!("run static mode handler");
+        panic!("Static mode is not yet supported");
     } else {
         match listing.mode() {
             leptos_router::SsrMode::OutOfOrder => {
@@ -63,7 +63,7 @@ async fn render_route<IV>(
                 };
                 render_view_into_response_stm(app, resp_opts, leptos_opts, resp_out).await;
             }
-            mode => panic!("oh no mode = {mode:?} what does it mean"),
+            mode => panic!("Mode {mode:?} is not yet supported"),
         }
     }
 }

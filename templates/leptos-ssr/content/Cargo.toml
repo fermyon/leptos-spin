@@ -1,0 +1,47 @@
+[package]
+name = "{{project-name | kebab_case}}"
+authors = ["itowlson <ivan.towlson@fermyon.com>"]
+description = ""
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = [ "cdylib" ]
+
+[dependencies]
+anyhow = "1"
+http = "0.2"
+spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v2.0.1", optional = true }
+
+cfg-if = "1"
+console_error_panic_hook = "0.1"
+leptos = { version = "0.5" }
+leptos_integration_utils = { version = "0.5.2", optional = true }
+leptos_meta = { version = "0.5" }
+leptos_router = { version = "0.5" }
+leptos-spin = { git = "https://github.com/fermyon/leptos-spin", branch = "main", optional = true }
+serde = "1.0.192"
+wasm-bindgen = { version = "0.2", optional = true }
+
+[workspace]
+
+[features]
+csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
+hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate", "dep:wasm-bindgen"]
+ssr = [
+  "leptos/ssr",
+  "leptos_meta/ssr",
+  "leptos_router/ssr",
+  "dep:spin-sdk",
+  "dep:leptos-spin",
+  "dep:leptos_integration_utils"
+]
+
+[package.metadata.leptos]
+# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
+output-name = "{{project-name | snake_case}}"
+style-file = "style/main.scss"
+bin-features = ["ssr"]
+bin-default-features = false
+lib-features = ["hydrate"]
+lib-default-features = false

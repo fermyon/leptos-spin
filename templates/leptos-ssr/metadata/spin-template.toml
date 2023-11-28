@@ -1,0 +1,8 @@
+manifest_version = "1"
+id = "leptos-ssr"
+description = "Leptos application using server-side rendering"
+tags = ["http", "rust", "leptos"]
+
+[parameters]
+project-description = { type = "string",  prompt = "Description", default = "" }
+http-path = { type = "string", prompt = "HTTP path", default = "/...", pattern = "^/\\S*$" }
