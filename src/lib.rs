@@ -20,7 +20,8 @@ pub async fn render_best_match_to_stream<IV>(
 ) where
     IV: leptos::IntoView + 'static,
 {
-    let url = url::Url::parse(&req.uri()).unwrap();
+    // req.uri() doesn't provide the full URI on Cloud (https://github.com/fermyon/spin/issues/2110). For now, use the header instead
+    let url = url::Url::parse(&url(&req)).unwrap(); 
     let path = url.path();
 
     // TODO: do we need to provide fallback to next best match if method does not match?  Probably
@@ -188,4 +189,9 @@ fn leptos_corrected_path(req: &url::Url) -> String {
     } else {
         "http://leptos".to_string() + path + "?" + query.unwrap_or_default()
     }
+}
+
+fn url(req: &IncomingRequest) -> String {
+    let full_url = &req.headers().get("spin-full-url")[0];
+    String::from_utf8_lossy(&full_url).to_string()
 }
