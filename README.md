@@ -6,7 +6,43 @@ This library provides integration services for running [Leptos](https://leptos-r
 
 At the moment, this library is _entirely_ experimental. It has known gaps, names and APIs will change, and Leptos experts will no doubt have much to say about its design!
 
-There is no Leptos-on-Spin template yet: you'll need to copy and paste off a sample.
+## Installing and running the template
+
+The `leptos-ssr` template can be installed using the following command:
+
+```bash
+spin templates install --git https://github.com/fermyon/leptos-spin
+
+Copying remote template source
+Installing template leptos-ssr...
+Installed 1 template(s)
+
++-------------------------------------------------------------+
+| Name         Description                                    |
++=============================================================+
+| leptos-ssr   Leptos application using server-side rendering |
++-------------------------------------------------------------+
+```
+
+Once the template is installed, a mew leptos project can be instantiated using: 
+
+```bash
+spin new -t leptos-ssr my-leptos-app -a
+```
+Before building and running the project [`cargo-leptos`](https://leptos-rs.github.io/leptos/ssr/21_cargo_leptos.html) needs to be installed:
+
+```bash
+cargo install cargo-leptos
+```
+
+To build and run the created project, the following command can be used:
+
+```bash
+cd my-leptos-app
+spin build --up
+```
+
+Now the app should be served at `http://127.0.0.1:3000`
 
 ## Special requirements
 
