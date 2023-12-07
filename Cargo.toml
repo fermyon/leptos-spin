@@ -7,10 +7,10 @@ edition = "2021"
 
 [dependencies]
 futures = "0.3.29"
-leptos = { version = "0.5", features = ["ssr"] }
-leptos_integration_utils = { version = "0.5.2" }
-leptos_meta = { version = "0.5", features = ["ssr"] }
-leptos_router = { version = "0.5", features = ["ssr"] }
+leptos = { git = "https://github.com/leptos-rs/leptos", rev = "6014a70d0def869f12282d2df8b6c442a012964d", features = ["ssr", "spin"] }
+leptos_integration_utils = { git = "https://github.com/leptos-rs/leptos", rev = "6014a70d0def869f12282d2df8b6c442a012964d" }
+leptos_meta = { git = "https://github.com/leptos-rs/leptos", rev = "6014a70d0def869f12282d2df8b6c442a012964d", features = ["ssr"] }
+leptos_router = { git = "https://github.com/leptos-rs/leptos", rev = "6014a70d0def869f12282d2df8b6c442a012964d", features = ["ssr"] }
 routefinder = { version = "0.5.3" }
 spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v2.0.1" }
 url = "2.4.1"

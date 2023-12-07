@@ -10,17 +10,16 @@ crate-type = [ "cdylib" ]
 
 [dependencies]
 anyhow = "1"
-http = "0.2"
-spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v2.0.1", optional = true }
-
 cfg-if = "1"
 console_error_panic_hook = "0.1"
-leptos = { version = "0.5" }
-leptos_integration_utils = { version = "0.5.2", optional = true }
-leptos_meta = { version = "0.5" }
-leptos_router = { version = "0.5" }
+http = "0.2"
+leptos = { git = "https://github.com/leptos-rs/leptos", rev = "6014a70d0def869f12282d2df8b6c442a012964d" }
+leptos_integration_utils = { git = "https://github.com/leptos-rs/leptos", rev = "6014a70d0def869f12282d2df8b6c442a012964d", optional = true }
+leptos_meta = { git = "https://github.com/leptos-rs/leptos", rev = "6014a70d0def869f12282d2df8b6c442a012964d" }
+leptos_router = { git = "https://github.com/leptos-rs/leptos", rev = "6014a70d0def869f12282d2df8b6c442a012964d" }
 leptos-spin = { git = "https://github.com/fermyon/leptos-spin", branch = "main", optional = true }
 serde = "1.0.192"
+spin-sdk = { git = "https://github.com/fermyon/spin", tag = "v2.0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
 [workspace]
@@ -32,6 +31,7 @@ ssr = [
   "leptos/ssr",
   "leptos_meta/ssr",
   "leptos_router/ssr",
+  "leptos/spin",
   "dep:spin-sdk",
   "dep:leptos-spin",
   "dep:leptos_integration_utils"
