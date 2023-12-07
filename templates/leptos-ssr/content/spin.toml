@@ -15,7 +15,7 @@ source = "target/wasm32-wasi/release/{{project-name | snake_case}}.wasm"
 allowed_outbound_hosts = []
 key_value_stores = ["default"]
 [component.{{project-name | kebab_case}}.build]
-command = "cargo leptos build --release && LEPTOS_OUTPUT_NAME={{project-name | snake_case}} cargo build --target wasm32-wasi --release --no-default-features --features ssr"
+command = "cargo leptos build --release && LEPTOS_OUTPUT_NAME={{project-name | snake_case}} cargo build --lib --target wasm32-wasi --release --no-default-features --features ssr"
 watch = ["src/**/*.rs", "Cargo.toml"]
 
 [[trigger.http]]
