@@ -47,8 +47,6 @@ Now the app should be served at `http://127.0.0.1:3000`
 ## Special requirements
 
 * All server functions (`#[server]`) **must** be explicitly registered (see usage sample below). In native code, Leptos uses a clever macro to register them automatically; unfortunately, that doesn't work in WASI.
-* Event handlers in views **must** be wrapped in `leptos::request_animation_frame` ([more info](https://leptos-rs.github.io/leptos/ssr/24_hydration_bugs.html#mismatches-between-server-and-client-code)). I am not sure if this is fundamental or if the requirement can be removed as we improve the integration.
-* Resources currently do not work as an upstream fix is needed (and is in progress). Similar issues may affect other server code - we have not tested very exhaustively yet!
 
 ## Usage
 
