@@ -32,11 +32,9 @@ fn HomePage() -> impl IntoView {
     // Creates a reactive value to update the button
     let (count, set_count) = create_signal(0);
     let on_click = move |_| {
-        request_animation_frame(move || { // !!! IMPORTANT !!! You must use request_enimation_frame
-            set_count.update(|count| *count += 1);
-            spawn_local(async move {
-                save_count(count.get()).await.unwrap(); // YOLO
-            });
+        set_count.update(|count| *count += 1);
+        spawn_local(async move {
+            save_count(count.get()).await.unwrap();
         });
     };
 
