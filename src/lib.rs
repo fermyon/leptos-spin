@@ -21,7 +21,7 @@ pub async fn render_best_match_to_stream<IV>(
     IV: leptos::IntoView + 'static,
 {
     // req.uri() doesn't provide the full URI on Cloud (https://github.com/fermyon/spin/issues/2110). For now, use the header instead
-    let url = url::Url::parse(&url(&req)).unwrap(); 
+    let url = url::Url::parse(&url(&req)).unwrap();
     let path = url.path();
 
     // TODO: do we need to provide fallback to next best match if method does not match?  Probably
@@ -133,7 +133,8 @@ async fn render_view_into_response_stm(
 
 async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
     let pq = req.path_with_query().unwrap_or_default();
-    let url = url::Url::parse(&req.uri()).unwrap();
+    // req.uri() doesn't provide the full URI on Cloud (https://github.com/fermyon/spin/issues/2110). For now, use the header instead
+    let url = url::Url::parse(&url(&req)).unwrap();
     let mut path_segs = url.path_segments().unwrap().collect::<Vec<_>>();
 
     let payload = loop {
@@ -193,5 +194,5 @@ fn leptos_corrected_path(req: &url::Url) -> String {
 
 fn url(req: &IncomingRequest) -> String {
     let full_url = &req.headers().get("spin-full-url")[0];
-    String::from_utf8_lossy(&full_url).to_string()
+    String::from_utf8_lossy(full_url).to_string()
 }
