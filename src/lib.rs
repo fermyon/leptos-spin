@@ -63,6 +63,19 @@ async fn render_route<IV>(
                 };
                 render_view_into_response_stm(app, resp_opts, leptos_opts, resp_out).await;
             }
+            leptos_router::SsrMode::Async => {
+                let resp_opts = ResponseOptions::default();
+                let app = {
+                    let app_fn2 = app_fn.clone();
+                    let res_options = resp_opts.clone();
+                    move || {
+                        provide_contexts(&url, res_options);
+                        (app_fn2)().into_view()
+                    }
+                };
+                render_view_into_response_stm_async_mode(app, resp_opts, leptos_opts, resp_out)
+                    .await;
+            }
             mode => panic!("Mode {mode:?} is not yet supported"),
         }
     }
@@ -129,6 +142,32 @@ async fn render_view_into_response_stm(
     while let Some(ch) = stm4.next().await {
         ogbod.send(ch).await.unwrap();
     }
+}
+
+async fn render_view_into_response_stm_async_mode(
+    app: impl FnOnce() -> leptos::View + 'static,
+    resp_opts: ResponseOptions,
+    leptos_opts: &leptos::leptos_config::LeptosOptions,
+    resp_out: ResponseOutparam,
+) {
+    // In the Axum integration, all this happens in a separate task, and sends back
+    // to the function via a futures::channel::oneshot(). WASI doesn't have an
+    // equivalent for that yet, so for now, just truck along.
+    let (stm, runtime) = leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
+        app,
+        move || "".into(),
+        || {},
+    );
+    let html = leptos_integration_utils::build_async_response(stm, leptos_opts, runtime).await;
+
+    let status_code = resp_opts.status().unwrap_or(200);
+    // TODO: and headers
+    let headers = Headers::new(&[("content-type".to_owned(), "text/html".into())]);
+
+    let og = OutgoingResponse::new(status_code, &headers);
+    let mut ogbod = og.take_body();
+    resp_out.set(og);
+    ogbod.send(html.into_bytes()).await.unwrap();
 }
 
 async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
