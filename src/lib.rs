@@ -1,6 +1,8 @@
 use futures::SinkExt;
 use futures::StreamExt;
+use futures::Stream;
 use leptos::LeptosOptions;
+use leptos::RuntimeId;
 use leptos_router::RouteListing;
 use route_table::RouteMatch;
 use spin_sdk::http::{Headers, IncomingRequest, OutgoingResponse, ResponseOutparam};
@@ -76,7 +78,19 @@ async fn render_route<IV>(
                 render_view_into_response_stm_async_mode(app, resp_opts, leptos_opts, resp_out)
                     .await;
             }
-            mode => panic!("Mode {mode:?} is not yet supported"),
+            leptos_router::SsrMode::InOrder => {
+                let resp_opts = ResponseOptions::default();
+                let app = {
+                    let app_fn2 = app_fn.clone();
+                    let res_options = resp_opts.clone();
+                    move || {
+                        provide_contexts(&url, res_options);
+                        (app_fn2)().into_view()
+                    }
+                };
+                render_view_into_response_stm_in_order_mode(app, leptos_opts, resp_opts, resp_out).await;
+            }
+            leptos_router::SsrMode::PartiallyBlocked => panic!("Mode 'PartiallyBlocked' is not yet supported"),
         }
     }
 }
@@ -96,12 +110,36 @@ async fn render_view_into_response_stm(
 ) {
     let (stm, runtime) = leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
         app,
-        move || {
-            let (_h, b) = leptos_meta::generate_head_metadata_separated();
-            b.into()
-        },
+        || leptos_meta::generate_head_metadata_separated().1.into(),
         || {},
         false);
+    build_stream_response(stm, leptos_opts, resp_opts, resp_out, runtime).await;
+}
+
+async fn render_view_into_response_stm_in_order_mode(
+    app: impl FnOnce() -> leptos::View + 'static,
+    leptos_opts: &LeptosOptions,
+    resp_opts: ResponseOptions,
+    resp_out: ResponseOutparam,
+) {
+    let (stm, runtime) =
+        leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
+            app,
+            || leptos_meta::generate_head_metadata_separated().1.into(),
+            || {},
+        );
+
+    build_stream_response(stm, leptos_opts, resp_opts, resp_out, runtime)
+        .await;
+}
+
+async fn build_stream_response(
+    stm: impl Stream<Item = String>,
+    leptos_opts: &LeptosOptions,
+    resp_opts: ResponseOptions,
+    resp_out: ResponseOutparam,
+    runtime: RuntimeId,
+) {
     let mut stm2 = Box::pin(stm);
 
     let first_app_chunk = stm2.next().await.unwrap_or_default();
