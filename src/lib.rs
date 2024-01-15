@@ -90,7 +90,18 @@ async fn render_route<IV>(
                 };
                 render_view_into_response_stm_in_order_mode(app, leptos_opts, resp_opts, resp_out).await;
             }
-            leptos_router::SsrMode::PartiallyBlocked => panic!("Mode 'PartiallyBlocked' is not yet supported"),
+            leptos_router::SsrMode::PartiallyBlocked => {
+                let resp_opts = ResponseOptions::default();
+                let app = {
+                    let app_fn2 = app_fn.clone();
+                    let res_options = resp_opts.clone();
+                    move || {
+                        provide_contexts(&url, res_options);
+                        (app_fn2)().into_view()
+                    }
+                };
+                render_view_into_response_stm_partially_blocked_mode(app, leptos_opts, resp_opts, resp_out).await;
+            }
         }
     }
 }
@@ -116,6 +127,32 @@ async fn render_view_into_response_stm(
     build_stream_response(stm, leptos_opts, resp_opts, resp_out, runtime).await;
 }
 
+async fn render_view_into_response_stm_async_mode(
+    app: impl FnOnce() -> leptos::View + 'static,
+    resp_opts: ResponseOptions,
+    leptos_opts: &leptos::leptos_config::LeptosOptions,
+    resp_out: ResponseOutparam,
+) {
+    // In the Axum integration, all this happens in a separate task, and sends back
+    // to the function via a futures::channel::oneshot(). WASI doesn't have an
+    // equivalent for that yet, so for now, just truck along.
+    let (stm, runtime) = leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
+        app,
+        move || "".into(),
+        || {},
+    );
+    let html = leptos_integration_utils::build_async_response(stm, leptos_opts, runtime).await;
+
+    let status_code = resp_opts.status().unwrap_or(200);
+    // TODO: and headers
+    let headers = Headers::new(&[("content-type".to_owned(), "text/html".into())]);
+
+    let og = OutgoingResponse::new(status_code, &headers);
+    let mut ogbod = og.take_body();
+    resp_out.set(og);
+    ogbod.send(html.into_bytes()).await.unwrap();
+}
+
 async fn render_view_into_response_stm_in_order_mode(
     app: impl FnOnce() -> leptos::View + 'static,
     leptos_opts: &LeptosOptions,
@@ -131,6 +168,22 @@ async fn render_view_into_response_stm_in_order_mode(
 
     build_stream_response(stm, leptos_opts, resp_opts, resp_out, runtime)
         .await;
+}
+
+async fn render_view_into_response_stm_partially_blocked_mode(
+    app: impl FnOnce() -> leptos::View + 'static,
+    leptos_opts: &LeptosOptions,
+    resp_opts: ResponseOptions,
+    resp_out: ResponseOutparam
+) {
+    let (stm, runtime) =
+        leptos::ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
+            app,
+            move || leptos_meta::generate_head_metadata_separated().1.into(),
+            || (),
+            true,
+        );
+    build_stream_response(stm, leptos_opts, resp_opts, resp_out, runtime).await;
 }
 
 async fn build_stream_response(
@@ -180,32 +233,6 @@ async fn build_stream_response(
     while let Some(ch) = stm4.next().await {
         ogbod.send(ch).await.unwrap();
     }
-}
-
-async fn render_view_into_response_stm_async_mode(
-    app: impl FnOnce() -> leptos::View + 'static,
-    resp_opts: ResponseOptions,
-    leptos_opts: &leptos::leptos_config::LeptosOptions,
-    resp_out: ResponseOutparam,
-) {
-    // In the Axum integration, all this happens in a separate task, and sends back
-    // to the function via a futures::channel::oneshot(). WASI doesn't have an
-    // equivalent for that yet, so for now, just truck along.
-    let (stm, runtime) = leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
-        app,
-        move || "".into(),
-        || {},
-    );
-    let html = leptos_integration_utils::build_async_response(stm, leptos_opts, runtime).await;
-
-    let status_code = resp_opts.status().unwrap_or(200);
-    // TODO: and headers
-    let headers = Headers::new(&[("content-type".to_owned(), "text/html".into())]);
-
-    let og = OutgoingResponse::new(status_code, &headers);
-    let mut ogbod = og.take_body();
-    resp_out.set(og);
-    ogbod.send(html.into_bytes()).await.unwrap();
 }
 
 async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
