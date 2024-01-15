@@ -49,59 +49,60 @@ async fn render_route<IV>(
 ) where
     IV: leptos::IntoView + 'static,
 {
-    if let Some(_static_mode) = listing.static_mode() {
-        panic!("Static mode is not yet supported");
-    } else {
-        match listing.mode() {
-            leptos_router::SsrMode::OutOfOrder => {
-                let resp_opts = ResponseOptions::default();
-                let app = {
-                    let app_fn2 = app_fn.clone();
-                    let res_options = resp_opts.clone();
-                    move || {
-                        provide_contexts(&url, res_options);
-                        (app_fn2)().into_view()
-                    }
-                };
-                render_view_into_response_stm(app, resp_opts, leptos_opts, resp_out).await;
-            }
-            leptos_router::SsrMode::Async => {
-                let resp_opts = ResponseOptions::default();
-                let app = {
-                    let app_fn2 = app_fn.clone();
-                    let res_options = resp_opts.clone();
-                    move || {
-                        provide_contexts(&url, res_options);
-                        (app_fn2)().into_view()
-                    }
-                };
-                render_view_into_response_stm_async_mode(app, resp_opts, leptos_opts, resp_out)
-                    .await;
-            }
-            leptos_router::SsrMode::InOrder => {
-                let resp_opts = ResponseOptions::default();
-                let app = {
-                    let app_fn2 = app_fn.clone();
-                    let res_options = resp_opts.clone();
-                    move || {
-                        provide_contexts(&url, res_options);
-                        (app_fn2)().into_view()
-                    }
-                };
-                render_view_into_response_stm_in_order_mode(app, leptos_opts, resp_opts, resp_out).await;
-            }
-            leptos_router::SsrMode::PartiallyBlocked => {
-                let resp_opts = ResponseOptions::default();
-                let app = {
-                    let app_fn2 = app_fn.clone();
-                    let res_options = resp_opts.clone();
-                    move || {
-                        provide_contexts(&url, res_options);
-                        (app_fn2)().into_view()
-                    }
-                };
-                render_view_into_response_stm_partially_blocked_mode(app, leptos_opts, resp_opts, resp_out).await;
-            }
+    if listing.static_mode().is_some() {
+        log_and_server_error("Static routes are not supported on Spin", resp_out);
+        return;
+    }
+
+    match listing.mode() {
+        leptos_router::SsrMode::OutOfOrder => {
+            let resp_opts = ResponseOptions::default();
+            let app = {
+                let app_fn2 = app_fn.clone();
+                let res_options = resp_opts.clone();
+                move || {
+                    provide_contexts(&url, res_options);
+                    (app_fn2)().into_view()
+                }
+            };
+            render_view_into_response_stm(app, resp_opts, leptos_opts, resp_out).await;
+        }
+        leptos_router::SsrMode::Async => {
+            let resp_opts = ResponseOptions::default();
+            let app = {
+                let app_fn2 = app_fn.clone();
+                let res_options = resp_opts.clone();
+                move || {
+                    provide_contexts(&url, res_options);
+                    (app_fn2)().into_view()
+                }
+            };
+            render_view_into_response_stm_async_mode(app, resp_opts, leptos_opts, resp_out)
+                .await;
+        }
+        leptos_router::SsrMode::InOrder => {
+            let resp_opts = ResponseOptions::default();
+            let app = {
+                let app_fn2 = app_fn.clone();
+                let res_options = resp_opts.clone();
+                move || {
+                    provide_contexts(&url, res_options);
+                    (app_fn2)().into_view()
+                }
+            };
+            render_view_into_response_stm_in_order_mode(app, leptos_opts, resp_opts, resp_out).await;
+        }
+        leptos_router::SsrMode::PartiallyBlocked => {
+            let resp_opts = ResponseOptions::default();
+            let app = {
+                let app_fn2 = app_fn.clone();
+                let res_options = resp_opts.clone();
+                move || {
+                    provide_contexts(&url, res_options);
+                    (app_fn2)().into_view()
+                }
+            };
+            render_view_into_response_stm_partially_blocked_mode(app, leptos_opts, resp_opts, resp_out).await;
         }
     }
 }
@@ -299,4 +300,13 @@ fn leptos_corrected_path(req: &url::Url) -> String {
 fn url(req: &IncomingRequest) -> String {
     let full_url = &req.headers().get("spin-full-url")[0];
     String::from_utf8_lossy(full_url).to_string()
+}
+
+fn log_and_server_error(message: impl Into<String>, resp_out: ResponseOutparam) {
+    println!("Error: {}", message.into());
+    let response = spin_sdk::http::OutgoingResponse::new(
+        500,
+        &spin_sdk::http::Fields::new(&[])
+    );
+    resp_out.set(response);
 }
