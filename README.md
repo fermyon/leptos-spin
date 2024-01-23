@@ -48,6 +48,24 @@ Now the app should be served at `http://127.0.0.1:3000`
 
 * All server functions (`#[server]`) **must** be explicitly registered (see usage sample below). In native code, Leptos uses a clever macro to register them automatically; unfortunately, that doesn't work in WASI.
 
+* When using a context value in a component in a `feature = "ssr"` block, you **must** call `use_context` **not** `expect_context`. `expect_context` will panic during routing.  E.g.
+
+```rust
+#[component]
+fn HomePage() -> impl IntoView {
+    #[cfg(feature = "ssr")]
+    {
+        if let Some(resp) = use_context::<leptos_spin::ResponseOptions>() {
+            resp.append_header("X-Utensil", "spork".as_bytes());
+        };
+    }
+
+    view! {
+        <h1>"Come over to the Leptos side - we have headers!"</h1>
+    }
+}
+```
+
 ## Usage
 
 ```rust
