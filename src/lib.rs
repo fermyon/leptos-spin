@@ -1,8 +1,7 @@
 use futures::SinkExt;
 use futures::StreamExt;
 use futures::Stream;
-use leptos::LeptosOptions;
-use leptos::RuntimeId;
+use leptos::{LeptosOptions, RuntimeId, create_runtime, provide_context};
 use leptos_router::RouteListing;
 use route_table::RouteMatch;
 use spin_sdk::http::{Headers, IncomingRequest, OutgoingResponse, ResponseOutparam};
@@ -240,18 +239,23 @@ async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
     let url = url::Url::parse(&url(&req)).unwrap();
     let mut path_segs = url.path_segments().unwrap().collect::<Vec<_>>();
 
-    let payload = loop {
+    let (payload, res_parts, runtime) = loop {
         if path_segs.is_empty() {
             panic!("NO LEPTOS FN!  Ran out of path segs looking for a match");
         }
 
         let candidate = path_segs.join("/");
-
         if let Some(lepfn) = leptos::leptos_server::server_fn_by_path(&candidate) {
             // TODO: better checking here - again using the captures might help
             if pq.starts_with(lepfn.prefix()) {
+                // Need to create a Runtime and provide some expected values
+                let runtime = create_runtime();
+                //provide_context(req.clone());
+                let res_parts = ResponseOptions::default();
+                provide_context(res_parts.clone());
+
                 let bod = req.into_body().await.unwrap();
-                break lepfn.call((), &bod).await.unwrap();
+                break (lepfn.call((), &bod).await.unwrap(), res_parts, runtime);
             }
         }
 
@@ -264,14 +268,16 @@ async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
         leptos::server_fn::Payload::Url(u) => u.into_bytes(),
     };
 
-    let og = OutgoingResponse::new(200, &Headers::new(&[]));
+    let status = res_parts.status().unwrap_or(200);
+    let headers = res_parts.headers();
+    let og = OutgoingResponse::new(status, &headers);
+    runtime.dispose();
     let mut ogbod = og.take_body();
     resp_out.set(og);
     ogbod.send(plbytes).await.unwrap();
 }
 
 fn provide_contexts(url: &url::Url, res_options: ResponseOptions) {
-    use leptos::provide_context;
 
     let path = leptos_corrected_path(url);
 
