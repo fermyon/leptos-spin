@@ -145,8 +145,7 @@ async fn render_view_into_response_stm_async_mode(
     let html = leptos_integration_utils::build_async_response(stm, leptos_opts, runtime).await;
 
     let status_code = resp_opts.status().unwrap_or(200);
-    // TODO: and headers
-    let headers = Headers::new(&[("content-type".to_owned(), "text/html".into())]);
+    let headers = resp_opts.headers();
 
     let og = OutgoingResponse::new(status_code, &headers);
     let mut ogbod = og.take_body();
@@ -212,8 +211,7 @@ async fn build_stream_response(
     let second_chunk = stm3.next().await;
 
     let status_code = resp_opts.status().unwrap_or(200);
-    // TODO: and headers
-    let headers = Headers::new(&[("content-type".to_owned(), "text/html".into())]);
+    let headers = resp_opts.headers();
 
     let og = OutgoingResponse::new(status_code, &headers);
     let mut ogbod = og.take_body();

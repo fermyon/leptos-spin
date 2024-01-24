@@ -1,5 +1,7 @@
 use std::sync::{Arc, RwLock};
 
+use spin_sdk::http::Headers;
+
 #[derive(Clone, Debug, Default)]
 pub struct ResponseOptions {
     inner: Arc<RwLock<ResponseOptionsInner>>,
@@ -13,9 +15,31 @@ impl ResponseOptions {
         let mut inner = self.inner.write().unwrap();
         inner.status = Some(status);
     }
+
+    pub fn headers(&self) -> Headers {
+        self.inner.read().unwrap().headers.clone()
+    }
+    pub fn insert_header(&self, name: &str, value: impl Into<Vec<u8>>) {
+        let inner = self.inner.write().unwrap();
+        inner.headers.set(name, &[value.into()]);
+    }
+    pub fn append_header(&self, name: &str, value: &[u8]) {
+        let inner = self.inner.write().unwrap();
+        inner.headers.append(name, value);
+    }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct ResponseOptionsInner {
     status: Option<u16>,
+    headers: Headers,
+}
+
+impl Default for ResponseOptionsInner {
+    fn default() -> Self {
+        Self {
+            status: Default::default(),
+            headers: Headers::new(&[("content-type".to_owned(), "text/html".into())]),
+        }
+    }
 }
