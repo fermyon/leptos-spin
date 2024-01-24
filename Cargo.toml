@@ -17,3 +17,4 @@ url = "2.4.1"
 
 [features]
 nonce = ["leptos/nonce"]
+experimental-islands = ["leptos_integration_utils/experimental-islands"]
