@@ -251,7 +251,7 @@ async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
                 // Need to create a Runtime and provide some expected values
                 let runtime = create_runtime();
                 //provide_context(req.clone());
-                let res_parts = ResponseOptions::default();
+                let res_parts = ResponseOptions::default_without_headers();
                 provide_context(res_parts.clone());
 
                 let bod = req.into_body().await.unwrap();

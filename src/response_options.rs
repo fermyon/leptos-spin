@@ -27,6 +27,13 @@ impl ResponseOptions {
         let inner = self.inner.write().unwrap();
         inner.headers.append(name, value);
     }
+    // Creates a ResponseOptions object with a default 200 status and no headers
+    // Useful for server functions
+    pub fn default_without_headers() -> Self {
+        Self{
+            inner: Arc::new(RwLock::new(ResponseOptionsInner::default_without_headers())),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -40,6 +47,17 @@ impl Default for ResponseOptionsInner {
         Self {
             status: Default::default(),
             headers: Headers::new(&[("content-type".to_owned(), "text/html".into())]),
+        }
+    }
+}
+
+impl ResponseOptionsInner{
+    // Creates a ResponseOptionsInner object with a default 200 status and no headers
+    // Useful for server functions
+    pub fn default_without_headers() -> Self{
+        Self {
+            status: Default::default(),
+            headers: Headers::new(&[]),
         }
     }
 }
