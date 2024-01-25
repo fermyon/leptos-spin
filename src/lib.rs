@@ -1,14 +1,15 @@
 use futures::SinkExt;
-use futures::StreamExt;
 use futures::Stream;
-use leptos::{LeptosOptions, RuntimeId, create_runtime, provide_context};
+use futures::StreamExt;
+use leptos::{create_runtime, provide_context, use_context, LeptosOptions, RuntimeId};
 use leptos_router::RouteListing;
 use route_table::RouteMatch;
 use spin_sdk::http::{Headers, IncomingRequest, OutgoingResponse, ResponseOutparam};
-
+mod request_parts;
 mod response_options;
 mod route_table;
 
+pub use request_parts::RequestParts;
 pub use response_options::ResponseOptions;
 pub use route_table::RouteTable;
 
@@ -29,7 +30,7 @@ pub async fn render_best_match_to_stream<IV>(
     // TODO: ensure req.method() is acceptable
     match routes.best_match(path) {
         RouteMatch::Route(best_listing) => {
-            render_route(url, resp_out, app_fn, leptos_opts, &best_listing).await
+            render_route(url, req, resp_out, app_fn, leptos_opts, &best_listing).await
         }
         RouteMatch::ServerFn => handle_server_fns(req, resp_out).await,
         RouteMatch::None => {
@@ -41,6 +42,7 @@ pub async fn render_best_match_to_stream<IV>(
 
 async fn render_route<IV>(
     url: url::Url,
+    req: IncomingRequest,
     resp_out: ResponseOutparam,
     app_fn: impl Fn() -> IV + 'static + Clone,
     leptos_opts: &LeptosOptions,
@@ -56,11 +58,13 @@ async fn render_route<IV>(
     match listing.mode() {
         leptos_router::SsrMode::OutOfOrder => {
             let resp_opts = ResponseOptions::default();
+            let req_parts = RequestParts::new_from_req(&req);
+
             let app = {
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, res_options);
+                    provide_contexts(&url, req_parts, res_options);
                     (app_fn2)().into_view()
                 }
             };
@@ -68,40 +72,52 @@ async fn render_route<IV>(
         }
         leptos_router::SsrMode::Async => {
             let resp_opts = ResponseOptions::default();
+            let req_parts = RequestParts::new_from_req(&req);
+
             let app = {
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, res_options);
+                    provide_contexts(&url, req_parts, res_options);
                     (app_fn2)().into_view()
                 }
             };
-            render_view_into_response_stm_async_mode(app, resp_opts, leptos_opts, resp_out)
-                .await;
+            render_view_into_response_stm_async_mode(app, resp_opts, leptos_opts, resp_out).await;
         }
         leptos_router::SsrMode::InOrder => {
             let resp_opts = ResponseOptions::default();
+            let req_parts = RequestParts::new_from_req(&req);
+
             let app = {
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, res_options);
+                    provide_contexts(&url, req_parts, res_options);
                     (app_fn2)().into_view()
                 }
             };
-            render_view_into_response_stm_in_order_mode(app, leptos_opts, resp_opts, resp_out).await;
+            render_view_into_response_stm_in_order_mode(app, leptos_opts, resp_opts, resp_out)
+                .await;
         }
         leptos_router::SsrMode::PartiallyBlocked => {
             let resp_opts = ResponseOptions::default();
+            let req_parts = RequestParts::new_from_req(&req);
+
             let app = {
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, res_options);
+                    provide_contexts(&url, req_parts, res_options);
                     (app_fn2)().into_view()
                 }
             };
-            render_view_into_response_stm_partially_blocked_mode(app, leptos_opts, resp_opts, resp_out).await;
+            render_view_into_response_stm_partially_blocked_mode(
+                app,
+                leptos_opts,
+                resp_opts,
+                resp_out,
+            )
+            .await;
         }
     }
 }
@@ -158,22 +174,20 @@ async fn render_view_into_response_stm_in_order_mode(
     resp_opts: ResponseOptions,
     resp_out: ResponseOutparam,
 ) {
-    let (stm, runtime) =
-        leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
-            app,
-            || leptos_meta::generate_head_metadata_separated().1.into(),
-            || {},
-        );
+    let (stm, runtime) = leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
+        app,
+        || leptos_meta::generate_head_metadata_separated().1.into(),
+        || {},
+    );
 
-    build_stream_response(stm, leptos_opts, resp_opts, resp_out, runtime)
-        .await;
+    build_stream_response(stm, leptos_opts, resp_opts, resp_out, runtime).await;
 }
 
 async fn render_view_into_response_stm_partially_blocked_mode(
     app: impl FnOnce() -> leptos::View + 'static,
     leptos_opts: &LeptosOptions,
     resp_opts: ResponseOptions,
-    resp_out: ResponseOutparam
+    resp_out: ResponseOutparam,
 ) {
     let (stm, runtime) =
         leptos::ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
@@ -250,7 +264,8 @@ async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
             if pq.starts_with(lepfn.prefix()) {
                 // Need to create a Runtime and provide some expected values
                 let runtime = create_runtime();
-                //provide_context(req.clone());
+                let req_parts = RequestParts::new_from_req(&req);
+                provide_context(req_parts);
                 let res_parts = ResponseOptions::default_without_headers();
                 provide_context(res_parts.clone());
 
@@ -277,16 +292,61 @@ async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
     ogbod.send(plbytes).await.unwrap();
 }
 
-fn provide_contexts(url: &url::Url, res_options: ResponseOptions) {
+/// Provides an easy way to redirect the user from within a server function.
+///
+/// This sets the `Location` header to the URL given.
+///
+/// If the route or server function in which this is called is being accessed
+/// by an ordinary `GET` request or an HTML `<form>` without any enhancement, it also sets a
+/// status code of `302` for a temporary redirect. (This is determined by whether the `Accept`
+/// header contains `text/html` as it does for an ordinary navigation.)
+///
+/// Otherwise, it sets a custom header that indicates to the client that it should redirect,
+/// without actually setting the status code. This means that the client will not follow the
+/// redirect, and can therefore return the value of the server function and then handle
+/// the redirect with client-side routing.
+pub fn redirect(path: &str) {
+    if let (Some(req), Some(res)) = (
+        use_context::<RequestParts>(),
+        use_context::<ResponseOptions>(),
+    ) {
+        // insert the Location header in any case
+        res.insert_header("Location", path);
+        let headers = Headers::new(req.headers());
+        let accepts_html = &headers.get("Accept")[0];
+        let accepts_html_bool = { String::from_utf8_lossy(accepts_html) == "text/html" };
 
+        if accepts_html_bool {
+            // if the request accepts text/html, it's a plain form request and needs
+            // to have the 302 code set
+            res.set_status(302);
+        } else {
+            // otherwise, we sent it from the server fn client and actually don't want
+            // to set a real redirect, as this will break the ability to return data
+            // instead, set the REDIRECT_HEADER to indicate that the client should redirect
+            res.insert_header("serverfnredirect", "");
+        }
+    } else {
+        tracing::warn!(
+            "Couldn't retrieve either Parts or ResponseOptions while trying \
+             to redirect()."
+        );
+    }
+    if let Some(response_options) = use_context::<ResponseOptions>() {
+        response_options.set_status(302);
+        response_options.insert_header("Location", path);
+    }
+}
+
+fn provide_contexts(url: &url::Url, req_parts: RequestParts, res_options: ResponseOptions) {
     let path = leptos_corrected_path(url);
 
     let integration = leptos_router::ServerIntegration { path };
     provide_context(leptos_router::RouterIntegrationContext::new(integration));
     provide_context(leptos_meta::MetaContext::new());
     provide_context(res_options);
-    // provide_context(req.clone());  // TODO: this feels like it could be needed?
-    // leptos_router::provide_server_redirect(redirect);  // TODO: do we want this?
+    provide_context(req_parts);
+    leptos_router::provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();
 }
@@ -308,9 +368,6 @@ fn url(req: &IncomingRequest) -> String {
 
 fn log_and_server_error(message: impl Into<String>, resp_out: ResponseOutparam) {
     println!("Error: {}", message.into());
-    let response = spin_sdk::http::OutgoingResponse::new(
-        500,
-        &spin_sdk::http::Fields::new(&[])
-    );
+    let response = spin_sdk::http::OutgoingResponse::new(500, &spin_sdk::http::Fields::new(&[]));
     resp_out.set(response);
 }

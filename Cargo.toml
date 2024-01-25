@@ -13,6 +13,7 @@ leptos_meta = { version = "0.5.6", features = ["ssr"] }
 leptos_router = { version = "0.5.6", features = ["ssr"] }
 routefinder = { version = "0.5.3" }
 spin-sdk = "2.1"
+tracing = "0.1.40"
 url = "2.4.1"
 
 [features]
