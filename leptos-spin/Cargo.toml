@@ -1,0 +1,27 @@
+[package]
+name = "leptos-spin"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dashmap = "5.5.3"
+futures = "0.3.29"
+leptos = { version = "0.6", features = ["ssr", "spin"] }
+leptos_integration_utils = { version = "0.6" }
+leptos_meta = { version = "0.6", features = ["ssr"] }
+leptos_router = { version = "0.6", features = ["ssr"] }
+once_cell = "1.19.0"
+routefinder = { version = "0.5.3" }
+server_fn_macro = "0.6.3"
+spin-sdk = "2.1"
+syn = "2.0.48"
+tracing = "0.1.40"
+url = "2.4.1"
+http = "1"
+bytes = "1.5.0"
+
+[features]
+nonce = ["leptos/nonce"]
+experimental-islands = ["leptos_integration_utils/experimental-islands"]

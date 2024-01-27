@@ -1,0 +1,15 @@
+[package]
+name = "leptos-spin-macro"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+http = "1.0.0"
+leptos = "0.6.3"
+proc-macro-error = "1.0.4"
+server_fn_macro = "0.6.3"
+spin-sdk = "2.1.0"
+syn = "2.0.48"

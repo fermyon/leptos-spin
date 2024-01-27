@@ -1,14 +1,18 @@
 use futures::SinkExt;
 use futures::Stream;
 use futures::StreamExt;
-use leptos::{create_runtime, provide_context, use_context, LeptosOptions, RuntimeId};
+use leptos::{provide_context, use_context, LeptosOptions, RuntimeId};
 use leptos_router::RouteListing;
 use route_table::RouteMatch;
 use spin_sdk::http::{Headers, IncomingRequest, OutgoingResponse, ResponseOutparam};
+mod incoming_request;
 mod request_parts;
+mod response;
 mod response_options;
 mod route_table;
+mod server_fn;
 
+use crate::server_fn::handle_server_fns;
 pub use request_parts::RequestParts;
 pub use response_options::ResponseOptions;
 pub use route_table::RouteTable;
@@ -245,51 +249,6 @@ async fn build_stream_response(
     while let Some(ch) = stm4.next().await {
         ogbod.send(ch).await.unwrap();
     }
-}
-
-async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
-    let pq = req.path_with_query().unwrap_or_default();
-    // req.uri() doesn't provide the full URI on Cloud (https://github.com/fermyon/spin/issues/2110). For now, use the header instead
-    let url = url::Url::parse(&url(&req)).unwrap();
-    let mut path_segs = url.path_segments().unwrap().collect::<Vec<_>>();
-
-    let (payload, res_parts, runtime) = loop {
-        if path_segs.is_empty() {
-            panic!("NO LEPTOS FN!  Ran out of path segs looking for a match");
-        }
-
-        let candidate = path_segs.join("/");
-        if let Some(lepfn) = leptos::leptos_server::server_fn_by_path(&candidate) {
-            // TODO: better checking here - again using the captures might help
-            if pq.starts_with(lepfn.prefix()) {
-                // Need to create a Runtime and provide some expected values
-                let runtime = create_runtime();
-                let req_parts = RequestParts::new_from_req(&req);
-                provide_context(req_parts);
-                let res_parts = ResponseOptions::default_without_headers();
-                provide_context(res_parts.clone());
-
-                let bod = req.into_body().await.unwrap();
-                break (lepfn.call((), &bod).await.unwrap(), res_parts, runtime);
-            }
-        }
-
-        path_segs.remove(0);
-    };
-
-    let plbytes = match payload {
-        leptos::server_fn::Payload::Binary(b) => b,
-        leptos::server_fn::Payload::Json(s) => s.into_bytes(),
-        leptos::server_fn::Payload::Url(u) => u.into_bytes(),
-    };
-
-    let status = res_parts.status().unwrap_or(200);
-    let headers = res_parts.headers();
-    let og = OutgoingResponse::new(status, &headers);
-    runtime.dispose();
-    let mut ogbod = og.take_body();
-    resp_out.set(og);
-    ogbod.send(plbytes).await.unwrap();
 }
 
 /// Provides an easy way to redirect the user from within a server function.
