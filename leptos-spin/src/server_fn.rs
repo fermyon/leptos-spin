@@ -1,7 +1,7 @@
 use crate::request_parts::RequestParts;
 use crate::response_options::ResponseOptions;
 use crate::url;
-use crate::{incoming_request::SpinRequest, response::SpinResponse};
+use crate::{request::SpinRequest, response::SpinResponse};
 use dashmap::DashMap;
 use futures::SinkExt;
 use http::Method as HttpMethod;
@@ -9,7 +9,7 @@ use http::Method as HttpMethod;
 use leptos::server_fn::{codec::Encoding, initialize_server_fn_map, ServerFn, ServerFnTraitObj};
 use leptos::{create_runtime, provide_context};
 use once_cell::sync::Lazy;
-use spin_sdk::http::{IncomingRequest, OutgoingResponse, Response, ResponseOutparam};
+use spin_sdk::http::{IncomingRequest, OutgoingResponse, ResponseOutparam};
 
 #[allow(unused)] // used by server integrations
 type LazyServerFnMap<Req, Res> = Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
@@ -65,7 +65,7 @@ pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam)
                 let res_parts = ResponseOptions::default_without_headers();
                 provide_context(res_parts.clone());
 
-                break (lepfn.run(&req).await.unwrap(), res_parts, runtime);
+                break (lepfn.clone().run(&req).await.unwrap(), res_parts, runtime);
             }
         }
 

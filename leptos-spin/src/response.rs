@@ -50,7 +50,8 @@ where
         let mut headers = Headers::new(&[("Content-Type".to_string(), content_type.into())]);
         let og_res = OutgoingResponse::new(200, &headers);
         let og_bod = og_res.take_body();
-
+        og_bod.send(body)?;
+        Ok(SpinResponse(og_res))
     }
 
     fn error_response(path: &str, err: &ServerFnError<CustErr>) -> Self {

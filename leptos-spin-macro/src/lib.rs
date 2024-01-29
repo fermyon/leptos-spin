@@ -1,3 +1,4 @@
+use leptos_spin::{request::SpinRequest, response::SpinResponse};
 use proc_macro::TokenStream;
 use proc_macro_error::proc_macro_error;
 use syn::__private::ToTokens;
@@ -10,8 +11,8 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         s.into(),
         Some(syn::parse_quote!(::leptos::server_fn)),
         "/api",
-        Some(syn::parse_quote!(spin_sdk::http::IncomingRequest)),
-        Some(syn::parse_quote!(spin_sdk::http::Response)),
+        Some(syn::parse_quote!(SpinRequest)),
+        Some(syn::parse_quote!(SpinResponse)),
     ) {
         Err(e) => e.to_compile_error().into(),
         Ok(s) => s.to_token_stream().into(),

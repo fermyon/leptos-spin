@@ -5,7 +5,7 @@ use leptos::{provide_context, use_context, LeptosOptions, RuntimeId};
 use leptos_router::RouteListing;
 use route_table::RouteMatch;
 use spin_sdk::http::{Headers, IncomingRequest, OutgoingResponse, ResponseOutparam};
-mod incoming_request;
+mod request;
 mod request_parts;
 mod response;
 mod response_options;

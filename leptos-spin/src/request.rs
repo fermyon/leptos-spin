@@ -24,7 +24,7 @@ where
     CustErr: 'static,
 {
     fn as_query(&self) -> Option<&str> {
-        self.0.uri().query()
+        self.0.path_with_query().as_deref()
     }
 
     fn to_content_type(&self) -> Option<Cow<'_, str>> {
@@ -74,9 +74,8 @@ where
         impl Stream<Item = Result<Bytes, ServerFnError>> + Send + 'static,
         ServerFnError<CustErr>,
     > {
-        Ok(self
-            .into_body()
-            .into_data_stream()
-            .map(|chunk| chunk.map_err(|e| ServerFnError::Deserialization(e.to_string()))))
+        Ok(self.0
+            .into_body_stream()
+            .map(|chunk| chunk.map(|c| Bytes::copy_from_slice(&c)).map_err(|e| ServerFnError::Deserialization(e.to_string()))))
     }
 }
