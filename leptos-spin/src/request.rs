@@ -3,11 +3,22 @@ use futures::{Stream, StreamExt};
 use leptos::server_fn::{error::ServerFnError, request::Req};
 use spin_sdk::http::IncomingRequest;
 use std::borrow::Cow;
+use std::sync::{Arc, RwLock};
 
 /// This is here because the orphan rule does not allow us to implement it on IncomingRequest with
 /// the generic error. So we have to wrap it to make it happy
-pub struct SpinRequest(pub IncomingRequest);
-
+pub struct SpinRequest{
+    pub req: IncomingRequest,
+    pub query: Arc<RwLock<Option<String>>>
+}
+impl SpinRequest{
+    pub fn new_from_req(req: IncomingRequest)-> Self{
+        SpinRequest{
+        req,
+        query: Default::default()
+        }
+    }
+}
 //It looks like it's difficult to impl Req/Res for an external type due to Rust's orphan rules:
 /*
 error[E0210]: type parameter `CustErr` must be used as the type parameter for some local type (e.g., `MyStruct<CustErr>`)
@@ -24,39 +35,48 @@ where
     CustErr: 'static,
 {
     fn as_query(&self) -> Option<&str> {
-        self.0.path_with_query().as_deref()
+        // Why are we doing this? Well that's because wit_bindgen's Request type doesn't return
+        // references
+        let path_and_query = self.req.path_with_query();
+        let mut writer = self.query.write().expect("Failed to get Arc<RwLock>");
+        *writer = path_and_query;
+        self.query.read().expect("Failed to read Arc<RwLock>").as_deref()
     }
 
     fn to_content_type(&self) -> Option<Cow<'_, str>> {
-        self.0
+
+        self.req
             .headers()
             .get("Content-Type")
-            .iter()
-            .nth(0)
-            .map(|h| String::from_utf8_lossy(&h))
+            .first()
+            .map(|h| String::from_utf8_lossy(h))
+            .map(Cow::into_owned)
+            .map(Cow::<'static, str>::Owned)
     }
 
     fn accepts(&self) -> Option<Cow<'_, str>> {
-        self.0
+        self.req
             .headers()
             .get("Accept")
-            .iter()
-            .nth(0)
-            .map(|h| String::from_utf8_lossy(&h))
+            .first()
+            .map(|h| String::from_utf8_lossy(h))
+            .map(Cow::into_owned)
+            .map(Cow::<'static, str>::Owned)
     }
 
     fn referer(&self) -> Option<Cow<'_, str>> {
-        self.0
+        self.req
             .headers()
             .get("Referer")
-            .iter()
-            .nth(0)
-            .map(|h| String::from_utf8_lossy(&h))
+            .first()
+            .map(|h| String::from_utf8_lossy(h))
+            .map(Cow::into_owned)
+            .map(Cow::<'static, str>::Owned)
     }
 
     async fn try_into_bytes(self) -> Result<Bytes, ServerFnError<CustErr>> {
         let buf = self
-            .0
+            .req
             .into_body()
             .await
             .map_err(|e| ServerFnError::Deserialization(e.to_string()))?;
@@ -74,7 +94,7 @@ where
         impl Stream<Item = Result<Bytes, ServerFnError>> + Send + 'static,
         ServerFnError<CustErr>,
     > {
-        Ok(self.0
+        Ok(self.req
             .into_body_stream()
             .map(|chunk| chunk.map(|c| Bytes::copy_from_slice(&c)).map_err(|e| ServerFnError::Deserialization(e.to_string()))))
     }

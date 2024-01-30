@@ -1,15 +1,17 @@
 use crate::request_parts::RequestParts;
 use crate::response_options::ResponseOptions;
 use crate::url;
-use crate::{request::SpinRequest, response::SpinResponse};
+use crate::{request::SpinRequest, response::{SpinResponse, SpinBody}};
 use dashmap::DashMap;
-use futures::SinkExt;
+use futures::{SinkExt, StreamExt};
 use http::Method as HttpMethod;
 /// Leptos Spin Integration for server functions
 use leptos::server_fn::{codec::Encoding, initialize_server_fn_map, ServerFn, ServerFnTraitObj};
 use leptos::{create_runtime, provide_context};
 use once_cell::sync::Lazy;
 use spin_sdk::http::{IncomingRequest, OutgoingResponse, ResponseOutparam};
+use leptos::server_fn::middleware::Service;
+
 
 #[allow(unused)] // used by server integrations
 type LazyServerFnMap<Req, Res> = Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
@@ -48,7 +50,7 @@ pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam)
     let url = url::Url::parse(&url(&req)).unwrap();
     let mut path_segs = url.path_segments().unwrap().collect::<Vec<_>>();
 
-    let (fn_res, res_parts, runtime) = loop {
+    let (spin_res, res_parts, runtime) = loop {
         if path_segs.is_empty() {
             panic!("NO LEPTOS FN!  Ran out of path segs looking for a match");
         }
@@ -65,23 +67,45 @@ pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam)
                 let res_parts = ResponseOptions::default_without_headers();
                 provide_context(res_parts.clone());
 
-                break (lepfn.clone().run(&req).await.unwrap(), res_parts, runtime);
+                let spin_req = SpinRequest::new_from_req(req);
+
+                break (lepfn.clone().run(spin_req).await, res_parts, runtime);
             }
         }
 
         path_segs.remove(0);
     };
 
-    let status = res_parts.status().unwrap_or(200);
-    let headers = res_parts.headers();
-    let og = OutgoingResponse::new(status, &headers);
+    let status = res_parts.status().unwrap_or(spin_res.0.status_code);
+    let mut headers = spin_res.0.headers;
+    //TODO: Add headers from response parts on top of these headers
+    
+    match spin_res.0.body{
+        SpinBody::Plain(r) => {
+            let og = OutgoingResponse::new(status, &headers);
+            let mut ogbod = og.take_body();
+            resp_out.set(og);
+            ogbod.send(r).await.unwrap();
+
+
+        },
+        SpinBody::Streaming(mut s) => {
+            let og = OutgoingResponse::new(status, &headers);
+            let mut res_body = og.take_body();
+            resp_out.set(og);
+
+            while let Some(Ok(chunk)) = s.next().await{
+                res_body.send(chunk.to_vec()).await;
+        }
+        }
+    }
     runtime.dispose();
-    let mut ogbod = og.take_body();
-    resp_out.set(og);
-    ogbod.send(plbytes).await.unwrap();
 }
 
 /// Returns the server function at the given path
-pub fn get_server_fn_by_path(path: &str) -> Option<&ServerFnTraitObj<SpinRequest, SpinResponse>> {
-    REGISTERED_SERVER_FUNCTIONS.get(path).as_deref()
+pub fn get_server_fn_by_path(path: &str) -> Option<ServerFnTraitObj<SpinRequest, SpinResponse>> {
+    match REGISTERED_SERVER_FUNCTIONS.get_mut(path){
+    Some(f) => Some(f.clone()),
+    None => None
+    }
 }
