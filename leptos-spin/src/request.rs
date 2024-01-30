@@ -1,34 +1,26 @@
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
 use leptos::server_fn::{error::ServerFnError, request::Req};
-use spin_sdk::http::IncomingRequest;
+use spin_sdk::http::{IncomingRequest, Headers};
 use std::borrow::Cow;
 
 /// This is here because the orphan rule does not allow us to implement it on IncomingRequest with
 /// the generic error. So we have to wrap it to make it happy
 pub struct SpinRequest{
     pub req: IncomingRequest,
-    pub path_with_query: Option<String>
+    pub path_with_query: Option<String>,
+    pub headers: Headers,
 }
 impl SpinRequest{
     pub fn new_from_req(req: IncomingRequest)-> Self{
         SpinRequest{
         path_with_query: req.path_with_query(),
+        headers: req.headers(),
         req,
         }
     }
 }
-//It looks like it's difficult to impl Req/Res for an external type due to Rust's orphan rules:
-/*
-error[E0210]: type parameter `CustErr` must be used as the type parameter for some local type (e.g., `MyStruct<CustErr>`)
-  --> leptos-spin/src/response.rs:13:6
-   |
-13 | impl<CustErr> Res<CustErr> for Response
-   |      ^^^^^^^ type parameter `CustErr` must be used as the type parameter for some local type
-   |
-   = note: implementing a foreign trait is only possible if at least one of the types for which it is implemented is local
-   = note: only traits defined in the current crate can be implemented for a type parameter
-*/
+
 impl<CustErr> Req<CustErr> for SpinRequest
 where
     CustErr: 'static,
@@ -41,8 +33,7 @@ where
 
     fn to_content_type(&self) -> Option<Cow<'_, str>> {
 
-        self.req
-            .headers()
+        self.headers
             .get("Content-Type")
             .first()
             .map(|h| String::from_utf8_lossy(h))
@@ -51,8 +42,7 @@ where
     }
 
     fn accepts(&self) -> Option<Cow<'_, str>> {
-        self.req
-            .headers()
+        self.headers
             .get("Accept")
             .first()
             .map(|h| String::from_utf8_lossy(h))
@@ -61,8 +51,7 @@ where
     }
 
     fn referer(&self) -> Option<Cow<'_, str>> {
-        self.req
-            .headers()
+        self.headers
             .get("Referer")
             .first()
             .map(|h| String::from_utf8_lossy(h))
