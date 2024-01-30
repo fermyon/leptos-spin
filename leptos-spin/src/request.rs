@@ -3,19 +3,18 @@ use futures::{Stream, StreamExt};
 use leptos::server_fn::{error::ServerFnError, request::Req};
 use spin_sdk::http::IncomingRequest;
 use std::borrow::Cow;
-use std::sync::{Arc, RwLock};
 
 /// This is here because the orphan rule does not allow us to implement it on IncomingRequest with
 /// the generic error. So we have to wrap it to make it happy
 pub struct SpinRequest{
     pub req: IncomingRequest,
-    pub query: Arc<RwLock<Option<String>>>
+    pub path_with_query: Option<String>
 }
 impl SpinRequest{
     pub fn new_from_req(req: IncomingRequest)-> Self{
         SpinRequest{
+        path_with_query: req.path_with_query(),
         req,
-        query: Default::default()
         }
     }
 }
@@ -35,12 +34,9 @@ where
     CustErr: 'static,
 {
     fn as_query(&self) -> Option<&str> {
-        // Why are we doing this? Well that's because wit_bindgen's Request type doesn't return
-        // references
-        let path_and_query = self.req.path_with_query();
-        let mut writer = self.query.write().expect("Failed to get Arc<RwLock>");
-        *writer = path_and_query;
-        self.query.read().expect("Failed to read Arc<RwLock>").as_deref()
+        self.path_with_query
+            .as_ref()
+            .and_then(|n| n.split_once('?').map(|(_, query)| query))
     }
 
     fn to_content_type(&self) -> Option<Cow<'_, str>> {

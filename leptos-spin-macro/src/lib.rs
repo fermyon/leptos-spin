@@ -1,4 +1,3 @@
-use leptos_spin::{request::SpinRequest, response::SpinResponse};
 use proc_macro::TokenStream;
 use proc_macro_error::proc_macro_error;
 use syn::__private::ToTokens;

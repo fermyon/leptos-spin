@@ -95,7 +95,7 @@ pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam)
             resp_out.set(og);
 
             while let Some(Ok(chunk)) = s.next().await{
-                res_body.send(chunk.to_vec()).await;
+                let _ = res_body.send(chunk.to_vec()).await;
         }
         }
     }
@@ -104,8 +104,5 @@ pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam)
 
 /// Returns the server function at the given path
 pub fn get_server_fn_by_path(path: &str) -> Option<ServerFnTraitObj<SpinRequest, SpinResponse>> {
-    match REGISTERED_SERVER_FUNCTIONS.get_mut(path){
-    Some(f) => Some(f.clone()),
-    None => None
-    }
+    REGISTERED_SERVER_FUNCTIONS.get_mut(path).map(|f|f.clone())
 }
