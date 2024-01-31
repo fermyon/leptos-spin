@@ -28,7 +28,7 @@ pub struct SpinResponseParts {
 /// server functions
 pub enum SpinBody {
     Plain(Vec<u8>),
-    Streaming(Pin<Box<dyn Stream<Item = Result<Bytes, Box<dyn std::error::Error>>>>>),
+    Streaming(Pin<Box<dyn Stream<Item = Result<Bytes, Box<dyn std::error::Error>>> + Send>>),
 }
 impl<CustErr> Res<CustErr> for SpinResponse
 where
