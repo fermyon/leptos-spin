@@ -11,8 +11,9 @@ use leptos::server_fn::middleware::Service;
 /// Leptos Spin Integration for server functions
 use leptos::server_fn::{codec::Encoding, initialize_server_fn_map, ServerFn, ServerFnTraitObj};
 use leptos::{create_runtime, provide_context};
+use multimap::MultiMap;
 use once_cell::sync::Lazy;
-use spin_sdk::http::{IncomingRequest, OutgoingResponse, ResponseOutparam};
+use spin_sdk::http::{Headers, IncomingRequest, OutgoingResponse, ResponseOutparam};
 
 #[allow(unused)] // used by server integrations
 type LazyServerFnMap<Req, Res> = Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
@@ -55,7 +56,7 @@ pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam)
     //let mut path_segs = url.path_segments().unwrap().collect::<Vec<_>>();
 
     //println!("PS: {path_segs:#?}");
-    let (spin_res, res_parts, runtime) = {
+    let (spin_res, res_options, runtime) = {
         //if path_segs.is_empty() {
         //    panic!("NO LEPTOS FN!  Ran out of path segs looking for a match");
         //}
@@ -66,20 +67,19 @@ pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam)
             let runtime = create_runtime();
             let req_parts = RequestParts::new_from_req(&req);
             provide_context(req_parts);
-            let res_parts = ResponseOptions::default_without_headers();
-            provide_context(res_parts.clone());
+            let res_options = ResponseOptions::default_without_headers();
+            provide_context(res_options.clone());
 
             let spin_req = SpinRequest::new_from_req(req);
-            (lepfn.clone().run(spin_req).await, res_parts, runtime)
+            (lepfn.clone().run(spin_req).await, res_options, runtime)
         } else {
             panic!("Server FN not found")
         }
 
         //path_segs.remove(0);
     };
-    let status = res_parts.status().unwrap_or(spin_res.0.status_code);
-    let headers = spin_res.0.headers;
-    //TODO: Add headers from response parts on top of these headers
+    let status = res_options.status().unwrap_or(spin_res.0.status_code);
+    let headers = merge_headers(spin_res.0.headers, res_options.headers());
 
     match spin_res.0.body {
         SpinBody::Plain(r) => {
@@ -104,4 +104,36 @@ pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam)
 /// Returns the server function at the given path
 pub fn get_server_fn_by_path(path: &str) -> Option<ServerFnTraitObj<SpinRequest, SpinResponse>> {
     REGISTERED_SERVER_FUNCTIONS.get_mut(path).map(|f| f.clone())
+}
+
+/// Merge together two sets of headers, deleting any in the first set of Headers that have a key in
+/// the second set of headers.
+pub fn merge_headers(h1: Headers, h2: Headers) -> Headers {
+    //1. Get all keys in H1 and H2
+    let entries1 = h1.entries();
+    let entries2 = h2.entries();
+
+    let mut mmap1 = MultiMap::new();
+    entries1.iter().for_each(|(k, v)| {
+        mmap1.insert(k, v);
+    });
+    let mut mmap2 = MultiMap::new();
+    entries2.iter().for_each(|(k, v)| {
+        mmap2.insert(k, v);
+    });
+
+    //2. Delete any keys in H1 that are present in H2
+    mmap1.retain(|&k, &_v| mmap2.get(k).is_none());
+
+    //3. Iterate through H2, adding them to H1
+    mmap1.extend(mmap2);
+
+    //4. Profit
+    let mut merged_vec: Vec<(String, Vec<u8>)> = vec![];
+    mmap1.iter_all().for_each(|(k, v)| {
+        for v in v.iter() {
+            merged_vec.push((k.to_string(), v.to_vec()))
+        }
+    });
+    Headers::new(&merged_vec)
 }
