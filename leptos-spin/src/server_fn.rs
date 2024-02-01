@@ -1,17 +1,18 @@
 use crate::request_parts::RequestParts;
 use crate::response_options::ResponseOptions;
-use crate::url;
-use crate::{request::SpinRequest, response::{SpinResponse, SpinBody}};
+use crate::{
+    request::SpinRequest,
+    response::{SpinBody, SpinResponse},
+};
 use dashmap::DashMap;
 use futures::{SinkExt, StreamExt};
 use http::Method as HttpMethod;
+use leptos::server_fn::middleware::Service;
 /// Leptos Spin Integration for server functions
 use leptos::server_fn::{codec::Encoding, initialize_server_fn_map, ServerFn, ServerFnTraitObj};
 use leptos::{create_runtime, provide_context};
 use once_cell::sync::Lazy;
 use spin_sdk::http::{IncomingRequest, OutgoingResponse, ResponseOutparam};
-use leptos::server_fn::middleware::Service;
-
 
 #[allow(unused)] // used by server integrations
 type LazyServerFnMap<Req, Res> = Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
@@ -46,57 +47,55 @@ pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, HttpMethod)> {
 
 pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
     let pq = req.path_with_query().unwrap_or_default();
+    //println!("PQ: {pq}");
     // req.uri() doesn't provide the full URI on Cloud (https://github.com/fermyon/spin/issues/2110). For now, use the header instead
-    let url = url::Url::parse(&url(&req)).unwrap();
-    let mut path_segs = url.path_segments().unwrap().collect::<Vec<_>>();
+    // let url = url::Url::parse(&url(&req)).unwrap();
 
-    let (spin_res, res_parts, runtime) = loop {
-        if path_segs.is_empty() {
-            panic!("NO LEPTOS FN!  Ran out of path segs looking for a match");
-        }
+    //println!("URL: {url}");
+    //let mut path_segs = url.path_segments().unwrap().collect::<Vec<_>>();
 
-        let candidate = path_segs.join("/");
-        if let Some(lepfn) = crate::server_fn::get_server_fn_by_path(&candidate) {
+    //println!("PS: {path_segs:#?}");
+    let (spin_res, res_parts, runtime) = {
+        //if path_segs.is_empty() {
+        //    panic!("NO LEPTOS FN!  Ran out of path segs looking for a match");
+        //}
+
+        //let candidate = path_segs.join("/");
+        if let Some(lepfn) = crate::server_fn::get_server_fn_by_path(&pq) {
             // TODO: better checking here - again using the captures might help
-            println!("PQ: {pq}");
-            if pq.starts_with(lepfn.path()) {
-                // Need to create a Runtime and provide some expected values
-                let runtime = create_runtime();
-                let req_parts = RequestParts::new_from_req(&req);
-                provide_context(req_parts);
-                let res_parts = ResponseOptions::default_without_headers();
-                provide_context(res_parts.clone());
+            let runtime = create_runtime();
+            let req_parts = RequestParts::new_from_req(&req);
+            provide_context(req_parts);
+            let res_parts = ResponseOptions::default_without_headers();
+            provide_context(res_parts.clone());
 
-                let spin_req = SpinRequest::new_from_req(req);
-
-                break (lepfn.clone().run(spin_req).await, res_parts, runtime);
-            }
+            let spin_req = SpinRequest::new_from_req(req);
+            (lepfn.clone().run(spin_req).await, res_parts, runtime)
+        } else {
+            panic!("Server FN not found")
         }
 
-        path_segs.remove(0);
+        //path_segs.remove(0);
     };
-
     let status = res_parts.status().unwrap_or(spin_res.0.status_code);
-    let mut headers = spin_res.0.headers;
+    let headers = spin_res.0.headers;
     //TODO: Add headers from response parts on top of these headers
-    
-    match spin_res.0.body{
+
+    match spin_res.0.body {
         SpinBody::Plain(r) => {
             let og = OutgoingResponse::new(status, &headers);
             let mut ogbod = og.take_body();
             resp_out.set(og);
             ogbod.send(r).await.unwrap();
-
-
-        },
+        }
         SpinBody::Streaming(mut s) => {
             let og = OutgoingResponse::new(status, &headers);
             let mut res_body = og.take_body();
             resp_out.set(og);
 
-            while let Some(Ok(chunk)) = s.next().await{
+            while let Some(Ok(chunk)) = s.next().await {
                 let _ = res_body.send(chunk.to_vec()).await;
-        }
+            }
         }
     }
     runtime.dispose();
@@ -104,5 +103,5 @@ pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam)
 
 /// Returns the server function at the given path
 pub fn get_server_fn_by_path(path: &str) -> Option<ServerFnTraitObj<SpinRequest, SpinResponse>> {
-    REGISTERED_SERVER_FUNCTIONS.get_mut(path).map(|f|f.clone())
+    REGISTERED_SERVER_FUNCTIONS.get_mut(path).map(|f| f.clone())
 }

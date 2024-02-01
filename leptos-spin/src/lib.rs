@@ -30,8 +30,6 @@ pub async fn render_best_match_to_stream<IV>(
     let url = url::Url::parse(&url(&req)).unwrap();
     let path = url.path();
 
-    // TODO: do we need to provide fallback to next best match if method does not match?  Probably
-    // TODO: ensure req.method() is acceptable
     match routes.best_match(path) {
         RouteMatch::Route(best_listing) => {
             render_route(url, req, resp_out, app_fn, leptos_opts, &best_listing).await

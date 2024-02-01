@@ -8,10 +8,18 @@ edition = "2021"
 [dependencies]
 dashmap = "5.5.3"
 futures = "0.3.29"
-leptos = { version = "0.6", features = ["ssr", "spin"] }
-leptos_integration_utils = { version = "0.6" }
-leptos_meta = { version = "0.6", features = ["ssr"] }
-leptos_router = { version = "0.6", features = ["ssr"] }
+
+#ileptos = { version = "0.6", features = ["ssr", "spin"] }
+#leptos_integration_utils = { version = "0.6" }
+#leptos_meta = { version = "0.6", features = ["ssr"] }
+#leptos_router = { version = "0.6", features = ["ssr"] }
+
+leptos = {path="../../../leptos/leptos", features=["ssr", "spin"]}
+leptos_integration_utils = {path="../../../leptos/integrations/utils"}
+leptos_meta = {path="../../../leptos/meta", features=["ssr"]}
+leptos_router = {path="../../../leptos/router", features=["ssr"]}
+
+
 once_cell = "1.19.0"
 routefinder = { version = "0.5.3" }
 spin-sdk = "2.1"
