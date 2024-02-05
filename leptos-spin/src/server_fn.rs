@@ -47,6 +47,9 @@ pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, HttpMethod)> {
 }
 
 pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
+handle_server_fns_with_context(req, resp_out, ||{}).await;
+}
+pub async fn handle_server_fns_with_context(req: IncomingRequest, resp_out: ResponseOutparam, additional_context: impl Fn() + 'static + Clone + Send) {
     let pq = req.path_with_query().unwrap_or_default();
     //println!("PQ: {pq}");
     // req.uri() doesn't provide the full URI on Cloud (https://github.com/fermyon/spin/issues/2110). For now, use the header instead
@@ -69,7 +72,7 @@ pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam)
             provide_context(req_parts);
             let res_options = ResponseOptions::default_without_headers();
             provide_context(res_options.clone());
-
+            additional_context();
             let spin_req = SpinRequest::new_from_req(req);
             (lepfn.clone().run(spin_req).await, res_options, runtime)
         } else {

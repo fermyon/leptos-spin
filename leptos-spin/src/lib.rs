@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use futures::SinkExt;
 use futures::Stream;
 use futures::StreamExt;
@@ -12,7 +14,7 @@ pub mod response_options;
 pub mod route_table;
 pub mod server_fn;
 
-use crate::server_fn::handle_server_fns;
+use crate::server_fn::handle_server_fns_with_context;
 pub use request_parts::RequestParts;
 pub use response_options::ResponseOptions;
 pub use route_table::RouteTable;
@@ -26,15 +28,27 @@ pub async fn render_best_match_to_stream<IV>(
 ) where
     IV: leptos::IntoView + 'static,
 {
+    render_best_match_to_stream_with_context(req, resp_out, routes, app_fn, || {},  leptos_opts).await;
+}
+pub async fn render_best_match_to_stream_with_context<IV>(
+    req: IncomingRequest,
+    resp_out: ResponseOutparam,
+    routes: &RouteTable,
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + Clone + Send + 'static,
+    leptos_opts: &LeptosOptions,
+) where
+    IV: leptos::IntoView + 'static,
+{
     // req.uri() doesn't provide the full URI on Cloud (https://github.com/fermyon/spin/issues/2110). For now, use the header instead
     let url = url::Url::parse(&url(&req)).unwrap();
     let path = url.path();
 
     match routes.best_match(path) {
         RouteMatch::Route(best_listing) => {
-            render_route(url, req, resp_out, app_fn, leptos_opts, &best_listing).await
+            render_route_with_context(url, req, resp_out, app_fn, additional_context, leptos_opts, &best_listing).await
         }
-        RouteMatch::ServerFn => handle_server_fns(req, resp_out).await,
+        RouteMatch::ServerFn => handle_server_fns_with_context(req, resp_out, additional_context).await,
         RouteMatch::None => {
             eprintln!("No route found for {url}");
             not_found(resp_out).await
@@ -47,6 +61,20 @@ async fn render_route<IV>(
     req: IncomingRequest,
     resp_out: ResponseOutparam,
     app_fn: impl Fn() -> IV + 'static + Clone,
+    leptos_opts: &LeptosOptions,
+    listing: &RouteListing,
+) where
+    IV: leptos::IntoView + 'static,
+{
+render_route_with_context(url, req, resp_out, app_fn, ||{}, leptos_opts, listing).await;
+}
+
+async fn render_route_with_context<IV>(
+    url: url::Url,
+    req: IncomingRequest,
+    resp_out: ResponseOutparam,
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + Clone + Send + 'static,
     leptos_opts: &LeptosOptions,
     listing: &RouteListing,
 ) where
@@ -66,7 +94,7 @@ async fn render_route<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, req_parts, res_options);
+                    provide_contexts(&url, req_parts, res_options, additional_context);
                     (app_fn2)().into_view()
                 }
             };
@@ -80,7 +108,7 @@ async fn render_route<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, req_parts, res_options);
+                    provide_contexts(&url, req_parts, res_options, additional_context);
                     (app_fn2)().into_view()
                 }
             };
@@ -94,7 +122,7 @@ async fn render_route<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, req_parts, res_options);
+                    provide_contexts(&url, req_parts, res_options, additional_context);
                     (app_fn2)().into_view()
                 }
             };
@@ -109,7 +137,8 @@ async fn render_route<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, req_parts, res_options);
+
+                    provide_contexts(&url, req_parts, res_options, additional_context);
                     (app_fn2)().into_view()
                 }
             };
@@ -295,7 +324,7 @@ pub fn redirect(path: &str) {
     }
 }
 
-fn provide_contexts(url: &url::Url, req_parts: RequestParts, res_options: ResponseOptions) {
+fn provide_contexts(url: &url::Url, req_parts: RequestParts, res_options: ResponseOptions, additional_context: impl Fn() + Clone + Send + 'static) {
     let path = leptos_corrected_path(url);
 
     let integration = leptos_router::ServerIntegration { path };
@@ -303,6 +332,7 @@ fn provide_contexts(url: &url::Url, req_parts: RequestParts, res_options: Respon
     provide_context(leptos_meta::MetaContext::new());
     provide_context(res_options);
     provide_context(req_parts);
+    additional_context();
     leptos_router::provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();
