@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 
-use futures::SinkExt;
-use futures::Stream;
-use futures::StreamExt;
+use futures::{SinkExt,Stream,StreamExt};
 use leptos::{provide_context, use_context, LeptosOptions, RuntimeId};
 use leptos_router::RouteListing;
 use route_table::RouteMatch;

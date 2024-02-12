@@ -1,4 +1,6 @@
-mod app;
+mod pages;
+mod routes;
+
 #[cfg(feature = "ssr")]
 mod server;
 
@@ -11,11 +13,11 @@ if #[cfg(feature = "hydrate")] {
 
     #[wasm_bindgen]
     pub fn hydrate() {
-      use app::*;
+      use routes::*;
 
       console_error_panic_hook::set_once();
 
-      leptos::mount_to_body(App);
+      leptos::mount_to_body(AppRouter);
     }
 }
 }

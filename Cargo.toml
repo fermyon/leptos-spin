@@ -5,3 +5,6 @@ members = [
     "leptos-spin",
     "leptos-spin-macro"
 ]
+exclude = [
+    "templates/leptos-ssr/content",
+]
