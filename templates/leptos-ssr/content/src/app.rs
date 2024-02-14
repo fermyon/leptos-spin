@@ -9,21 +9,20 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        // injects a stylesheet into the document <head>
-        <Stylesheet id="leptos" href="/pkg/{{project-name | snake_case}}.css"/>
+      <Stylesheet id="leptos" href="/pkg/{{project-name | snake_case}}.css"/>
 
-        // sets the document title
-        <Title text="Welcome to Leptos"/>
+      // sets the document title
+      <Title text="Welcome to Leptos"/>
 
-        // content for this welcome page
-        <Router>
-            <main>
-                <Routes>
-                    <Route path="" view=HomePage/>
-                    <Route path="/*any" view=NotFound/>
-                </Routes>
-            </main>
-        </Router>
+      // content for this welcome page
+      <Router>
+        <main>
+          <Routes>
+            <Route path="" view=HomePage/>
+            <Route path="/*any" view=NotFound/>
+          </Routes>
+        </main>
+      </Router>
     }
 }
 
@@ -40,8 +39,8 @@ fn HomePage() -> impl IntoView {
     };
 
     view! {
-        <h1>"Welcome to Leptos - served from Spin!"</h1>
-        <button on:click=on_click>"Click Me: " {count}</button>
+      <h1>"Welcome to Leptos - served from Spin!"</h1>
+      <button on:click=on_click>"Click Me: " {count}</button>
     }
 }
 
@@ -62,9 +61,7 @@ fn NotFound() -> impl IntoView {
         resp.set_status(404);
     }
 
-    view! {
-        <h1>"Not Found"</h1>
-    }
+    view! { <h1>"Not Found"</h1> }
 }
 
 #[server(SaveCount, "/api")]

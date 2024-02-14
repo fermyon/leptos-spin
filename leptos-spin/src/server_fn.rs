@@ -51,20 +51,7 @@ handle_server_fns_with_context(req, resp_out, ||{}).await;
 }
 pub async fn handle_server_fns_with_context(req: IncomingRequest, resp_out: ResponseOutparam, additional_context: impl Fn() + 'static + Clone + Send) {
     let pq = req.path_with_query().unwrap_or_default();
-    //println!("PQ: {pq}");
-    // req.uri() doesn't provide the full URI on Cloud (https://github.com/fermyon/spin/issues/2110). For now, use the header instead
-    // let url = url::Url::parse(&url(&req)).unwrap();
-
-    //println!("URL: {url}");
-    //let mut path_segs = url.path_segments().unwrap().collect::<Vec<_>>();
-
-    //println!("PS: {path_segs:#?}");
     let (spin_res, res_options, runtime) = {
-        //if path_segs.is_empty() {
-        //    panic!("NO LEPTOS FN!  Ran out of path segs looking for a match");
-        //}
-
-        //let candidate = path_segs.join("/");
         if let Some(lepfn) = crate::server_fn::get_server_fn_by_path(&pq) {
             // TODO: better checking here - again using the captures might help
             let runtime = create_runtime();

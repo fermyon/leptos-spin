@@ -16,6 +16,7 @@ use crate::server_fn::handle_server_fns_with_context;
 pub use request_parts::RequestParts;
 pub use response_options::ResponseOptions;
 pub use route_table::RouteTable;
+use leptos::server_fn::redirect::REDIRECT_HEADER;
 
 pub async fn render_best_match_to_stream<IV>(
     req: IncomingRequest,
@@ -295,11 +296,11 @@ pub fn redirect(path: &str) {
         use_context::<ResponseOptions>(),
     ) {
         // insert the Location header in any case
-        res.insert_header("Location", path);
-        let headers = Headers::new(req.headers());
-        let accepts_html = &headers.get("Accept")[0];
-        let accepts_html_bool = { String::from_utf8_lossy(accepts_html) == "text/html" };
+        res.insert_header("location", path);
 
+        let req_headers = Headers::new(req.headers());
+        let accepts_html = &req_headers.get("Accept")[0];
+        let accepts_html_bool = String::from_utf8_lossy(accepts_html).contains("text/html");
         if accepts_html_bool {
             // if the request accepts text/html, it's a plain form request and needs
             // to have the 302 code set
@@ -308,17 +309,13 @@ pub fn redirect(path: &str) {
             // otherwise, we sent it from the server fn client and actually don't want
             // to set a real redirect, as this will break the ability to return data
             // instead, set the REDIRECT_HEADER to indicate that the client should redirect
-            res.insert_header("serverfnredirect", "");
+            res.insert_header(REDIRECT_HEADER, "");
         }
     } else {
         tracing::warn!(
             "Couldn't retrieve either Parts or ResponseOptions while trying \
              to redirect()."
         );
-    }
-    if let Some(response_options) = use_context::<ResponseOptions>() {
-        response_options.set_status(302);
-        response_options.insert_header("Location", path);
     }
 }
 

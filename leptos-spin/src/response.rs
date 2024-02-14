@@ -85,8 +85,10 @@ where
     }
 
     fn redirect(&mut self, path: &str) {
-        let res_options = expect_context::<ResponseOptions>();
-        res_options.insert_header("Location", path);
-        res_options.set_status(302);
+        //TODO: Enabling these seems to override location header
+        // not sure what's causing that
+        //let res_options = expect_context::<ResponseOptions>();
+        //res_options.insert_header("Location", path);
+        //res_options.set_status(302);
     }
 }
