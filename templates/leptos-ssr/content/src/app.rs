@@ -1,6 +1,7 @@
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use leptos_spin_macro::server;
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -8,21 +9,20 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        // injects a stylesheet into the document <head>
-        <Stylesheet id="leptos" href="/pkg/{{project-name | snake_case}}.css"/>
+      <Stylesheet id="leptos" href="/pkg/{{project-name | snake_case}}.css"/>
 
-        // sets the document title
-        <Title text="Welcome to Leptos"/>
+      // sets the document title
+      <Title text="Welcome to Leptos"/>
 
-        // content for this welcome page
-        <Router>
-            <main>
-                <Routes>
-                    <Route path="" view=HomePage/>
-                    <Route path="/*any" view=NotFound/>
-                </Routes>
-            </main>
-        </Router>
+      // content for this welcome page
+      <Router>
+        <main>
+          <Routes>
+            <Route path="" view=HomePage/>
+            <Route path="/*any" view=NotFound/>
+          </Routes>
+        </main>
+      </Router>
     }
 }
 
@@ -39,8 +39,8 @@ fn HomePage() -> impl IntoView {
     };
 
     view! {
-        <h1>"Welcome to Leptos - served from Spin!"</h1>
-        <button on:click=on_click>"Click Me: " {count}</button>
+      <h1>"Welcome to Leptos - served from Spin!"</h1>
+      <button on:click=on_click>"Click Me: " {count}</button>
     }
 }
 
@@ -61,15 +61,13 @@ fn NotFound() -> impl IntoView {
         resp.set_status(404);
     }
 
-    view! {
-        <h1>"Not Found"</h1>
-    }
+    view! { <h1>"Not Found"</h1> }
 }
 
 #[server(SaveCount, "/api")]
-pub async fn save_count(count: u32) -> Result<(), ServerFnError> {
+pub async fn save_count(count: u32) -> Result<(), ServerFnError<String>> {
     println!("Saving value {count}");
-    let store = spin_sdk::key_value::Store::open_default()?;
+    let store = spin_sdk::key_value::Store::open_default().map_err(|e| e.to_string())?;
     store.set_json("{{project-name | snake_case}}_count", &count).map_err(|e| ServerFnError::ServerError(e.to_string()))?;
     Ok(())
 }

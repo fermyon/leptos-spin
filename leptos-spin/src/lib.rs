@@ -1,17 +1,22 @@
-use futures::SinkExt;
-use futures::Stream;
-use futures::StreamExt;
-use leptos::{create_runtime, provide_context, use_context, LeptosOptions, RuntimeId};
+#![allow(dead_code)]
+
+use futures::{SinkExt,Stream,StreamExt};
+use leptos::{provide_context, use_context, LeptosOptions, RuntimeId};
 use leptos_router::RouteListing;
 use route_table::RouteMatch;
 use spin_sdk::http::{Headers, IncomingRequest, OutgoingResponse, ResponseOutparam};
-mod request_parts;
-mod response_options;
-mod route_table;
+pub mod request;
+pub mod request_parts;
+pub mod response;
+pub mod response_options;
+pub mod route_table;
+pub mod server_fn;
 
+use crate::server_fn::handle_server_fns_with_context;
 pub use request_parts::RequestParts;
 pub use response_options::ResponseOptions;
 pub use route_table::RouteTable;
+use leptos::server_fn::redirect::REDIRECT_HEADER;
 
 pub async fn render_best_match_to_stream<IV>(
     req: IncomingRequest,
@@ -22,17 +27,27 @@ pub async fn render_best_match_to_stream<IV>(
 ) where
     IV: leptos::IntoView + 'static,
 {
+    render_best_match_to_stream_with_context(req, resp_out, routes, app_fn, || {},  leptos_opts).await;
+}
+pub async fn render_best_match_to_stream_with_context<IV>(
+    req: IncomingRequest,
+    resp_out: ResponseOutparam,
+    routes: &RouteTable,
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + Clone + Send + 'static,
+    leptos_opts: &LeptosOptions,
+) where
+    IV: leptos::IntoView + 'static,
+{
     // req.uri() doesn't provide the full URI on Cloud (https://github.com/fermyon/spin/issues/2110). For now, use the header instead
     let url = url::Url::parse(&url(&req)).unwrap();
     let path = url.path();
 
-    // TODO: do we need to provide fallback to next best match if method does not match?  Probably
-    // TODO: ensure req.method() is acceptable
     match routes.best_match(path) {
         RouteMatch::Route(best_listing) => {
-            render_route(url, req, resp_out, app_fn, leptos_opts, &best_listing).await
+            render_route_with_context(url, req, resp_out, app_fn, additional_context, leptos_opts, &best_listing).await
         }
-        RouteMatch::ServerFn => handle_server_fns(req, resp_out).await,
+        RouteMatch::ServerFn => handle_server_fns_with_context(req, resp_out, additional_context).await,
         RouteMatch::None => {
             eprintln!("No route found for {url}");
             not_found(resp_out).await
@@ -45,6 +60,20 @@ async fn render_route<IV>(
     req: IncomingRequest,
     resp_out: ResponseOutparam,
     app_fn: impl Fn() -> IV + 'static + Clone,
+    leptos_opts: &LeptosOptions,
+    listing: &RouteListing,
+) where
+    IV: leptos::IntoView + 'static,
+{
+render_route_with_context(url, req, resp_out, app_fn, ||{}, leptos_opts, listing).await;
+}
+
+async fn render_route_with_context<IV>(
+    url: url::Url,
+    req: IncomingRequest,
+    resp_out: ResponseOutparam,
+    app_fn: impl Fn() -> IV + 'static + Clone,
+    additional_context: impl Fn() + Clone + Send + 'static,
     leptos_opts: &LeptosOptions,
     listing: &RouteListing,
 ) where
@@ -64,7 +93,7 @@ async fn render_route<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, req_parts, res_options);
+                    provide_contexts(&url, req_parts, res_options, additional_context);
                     (app_fn2)().into_view()
                 }
             };
@@ -78,7 +107,7 @@ async fn render_route<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, req_parts, res_options);
+                    provide_contexts(&url, req_parts, res_options, additional_context);
                     (app_fn2)().into_view()
                 }
             };
@@ -92,7 +121,7 @@ async fn render_route<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, req_parts, res_options);
+                    provide_contexts(&url, req_parts, res_options, additional_context);
                     (app_fn2)().into_view()
                 }
             };
@@ -107,7 +136,8 @@ async fn render_route<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, req_parts, res_options);
+
+                    provide_contexts(&url, req_parts, res_options, additional_context);
                     (app_fn2)().into_view()
                 }
             };
@@ -247,51 +277,6 @@ async fn build_stream_response(
     }
 }
 
-async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
-    let pq = req.path_with_query().unwrap_or_default();
-    // req.uri() doesn't provide the full URI on Cloud (https://github.com/fermyon/spin/issues/2110). For now, use the header instead
-    let url = url::Url::parse(&url(&req)).unwrap();
-    let mut path_segs = url.path_segments().unwrap().collect::<Vec<_>>();
-
-    let (payload, res_parts, runtime) = loop {
-        if path_segs.is_empty() {
-            panic!("NO LEPTOS FN!  Ran out of path segs looking for a match");
-        }
-
-        let candidate = path_segs.join("/");
-        if let Some(lepfn) = leptos::leptos_server::server_fn_by_path(&candidate) {
-            // TODO: better checking here - again using the captures might help
-            if pq.starts_with(lepfn.prefix()) {
-                // Need to create a Runtime and provide some expected values
-                let runtime = create_runtime();
-                let req_parts = RequestParts::new_from_req(&req);
-                provide_context(req_parts);
-                let res_parts = ResponseOptions::default_without_headers();
-                provide_context(res_parts.clone());
-
-                let bod = req.into_body().await.unwrap();
-                break (lepfn.call((), &bod).await.unwrap(), res_parts, runtime);
-            }
-        }
-
-        path_segs.remove(0);
-    };
-
-    let plbytes = match payload {
-        leptos::server_fn::Payload::Binary(b) => b,
-        leptos::server_fn::Payload::Json(s) => s.into_bytes(),
-        leptos::server_fn::Payload::Url(u) => u.into_bytes(),
-    };
-
-    let status = res_parts.status().unwrap_or(200);
-    let headers = res_parts.headers();
-    let og = OutgoingResponse::new(status, &headers);
-    runtime.dispose();
-    let mut ogbod = og.take_body();
-    resp_out.set(og);
-    ogbod.send(plbytes).await.unwrap();
-}
-
 /// Provides an easy way to redirect the user from within a server function.
 ///
 /// This sets the `Location` header to the URL given.
@@ -311,11 +296,11 @@ pub fn redirect(path: &str) {
         use_context::<ResponseOptions>(),
     ) {
         // insert the Location header in any case
-        res.insert_header("Location", path);
-        let headers = Headers::new(req.headers());
-        let accepts_html = &headers.get("Accept")[0];
-        let accepts_html_bool = { String::from_utf8_lossy(accepts_html) == "text/html" };
+        res.insert_header("location", path);
 
+        let req_headers = Headers::new(req.headers());
+        let accepts_html = &req_headers.get("Accept")[0];
+        let accepts_html_bool = String::from_utf8_lossy(accepts_html).contains("text/html");
         if accepts_html_bool {
             // if the request accepts text/html, it's a plain form request and needs
             // to have the 302 code set
@@ -324,7 +309,7 @@ pub fn redirect(path: &str) {
             // otherwise, we sent it from the server fn client and actually don't want
             // to set a real redirect, as this will break the ability to return data
             // instead, set the REDIRECT_HEADER to indicate that the client should redirect
-            res.insert_header("serverfnredirect", "");
+            res.insert_header(REDIRECT_HEADER, "");
         }
     } else {
         tracing::warn!(
@@ -332,13 +317,9 @@ pub fn redirect(path: &str) {
              to redirect()."
         );
     }
-    if let Some(response_options) = use_context::<ResponseOptions>() {
-        response_options.set_status(302);
-        response_options.insert_header("Location", path);
-    }
 }
 
-fn provide_contexts(url: &url::Url, req_parts: RequestParts, res_options: ResponseOptions) {
+fn provide_contexts(url: &url::Url, req_parts: RequestParts, res_options: ResponseOptions, additional_context: impl Fn() + Clone + Send + 'static) {
     let path = leptos_corrected_path(url);
 
     let integration = leptos_router::ServerIntegration { path };
@@ -346,6 +327,7 @@ fn provide_contexts(url: &url::Url, req_parts: RequestParts, res_options: Respon
     provide_context(leptos_meta::MetaContext::new());
     provide_context(res_options);
     provide_context(req_parts);
+    additional_context();
     leptos_router::provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();

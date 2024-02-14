@@ -1,4 +1,5 @@
 mod app;
+
 #[cfg(feature = "ssr")]
 mod server;
 
