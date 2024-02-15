@@ -65,7 +65,7 @@ async fn render_route<IV>(
 ) where
     IV: leptos::IntoView + 'static,
 {
-render_route_with_context(url, req, resp_out, app_fn, ||{}, leptos_opts, listing).await;
+    render_route_with_context(url, req, resp_out, app_fn, ||{}, leptos_opts, listing).await;
 }
 
 async fn render_route_with_context<IV>(
