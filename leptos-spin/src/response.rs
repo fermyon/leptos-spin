@@ -1,7 +1,5 @@
-use crate::ResponseOptions;
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
-use leptos::expect_context;
 use leptos::server_fn::error::{
     ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
 };
@@ -84,7 +82,7 @@ where
         SpinResponse(parts)
     }
 
-    fn redirect(&mut self, path: &str) {
+    fn redirect(&mut self, _path: &str) {
         //TODO: Enabling these seems to override location header
         // not sure what's causing that
         //let res_options = expect_context::<ResponseOptions>();
