@@ -2,8 +2,9 @@
 name = "leptos-spin"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Spin support for Leptos"
+license = "Apache-2.0"
+homepage = "https://github.com/fermyon/leptos-spin"
 
 [dependencies]
 dashmap = "5.5.3"
