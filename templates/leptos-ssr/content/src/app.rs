@@ -1,7 +1,6 @@
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
-use leptos_spin_macro::server;
 
 #[component]
 pub fn App() -> impl IntoView {
