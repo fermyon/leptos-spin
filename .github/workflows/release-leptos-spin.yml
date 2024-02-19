@@ -1,4 +1,4 @@
-name: Release
+name: Release leptos-spin
 
 on:
   workflow_dispatch:
@@ -17,8 +17,8 @@ jobs:
           profile: minimal
           toolchain: stable
 
-      - name: Check crate publish
-        run: cargo publish --dry-run -p leptos-spin-macro
+      - name: Check main crate publish
+        run: cargo publish --dry-run -p leptos-spin
 
   release:
     name: "Publish to crates.io"
@@ -39,5 +39,5 @@ jobs:
         env:
           CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
-      - name: Publish crate
-        run: cargo publish -p leptos-spin-macro
+      - name: Publish main crate
+        run: cargo publish -p leptos-spin
