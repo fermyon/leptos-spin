@@ -10,7 +10,6 @@ homepage = "https://github.com/fermyon/leptos-spin"
 dashmap = "5.5.3"
 futures = "0.3.29"
 
-<<<<<<< HEAD
 leptos = { version = "0.6.9", features = ["ssr", "spin"] }
 leptos_integration_utils = { version = "0.6.9" }
 leptos_meta = { version = "0.6.9", features = ["ssr"] }
