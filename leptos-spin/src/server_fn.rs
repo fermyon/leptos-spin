@@ -14,6 +14,7 @@ use leptos::{create_runtime, provide_context};
 use multimap::MultiMap;
 use once_cell::sync::Lazy;
 use spin_sdk::http::{Headers, IncomingRequest, OutgoingResponse, ResponseOutparam};
+use url::Url;
 
 #[allow(unused)] // used by server integrations
 type LazyServerFnMap<Req, Res> = Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
@@ -51,8 +52,9 @@ handle_server_fns_with_context(req, resp_out, ||{}).await;
 }
 pub async fn handle_server_fns_with_context(req: IncomingRequest, resp_out: ResponseOutparam, additional_context: impl Fn() + 'static + Clone + Send) {
     let pq = req.path_with_query().unwrap_or_default();
-    let (spin_res, res_options, runtime) = {
-        if let Some(lepfn) = crate::server_fn::get_server_fn_by_path(&pq) {
+    let (spin_res, res_options, runtime) = 
+        match crate::server_fn::get_server_fn_by_path(&pq) {
+            Some(lepfn) => {
             // TODO: better checking here - again using the captures might help
             let runtime = create_runtime();
             let req_parts = RequestParts::new_from_req(&req);
@@ -62,10 +64,9 @@ pub async fn handle_server_fns_with_context(req: IncomingRequest, resp_out: Resp
             additional_context();
             let spin_req = SpinRequest::new_from_req(req);
             (lepfn.clone().run(spin_req).await, res_options, runtime)
-        } else {
-            panic!("Server FN not found")
-        }
-
+        },
+            None => panic!("Server FN path {} not found", &pq)
+        
         //path_segs.remove(0);
     };
     let status = res_options.status().unwrap_or(spin_res.0.status_code);
@@ -93,7 +94,14 @@ pub async fn handle_server_fns_with_context(req: IncomingRequest, resp_out: Resp
 
 /// Returns the server function at the given path
 pub fn get_server_fn_by_path(path: &str) -> Option<ServerFnTraitObj<SpinRequest, SpinResponse>> {
-    REGISTERED_SERVER_FUNCTIONS.get_mut(path).map(|f| f.clone())
+    // Sanitize Url to prevent query string or ids causing issues. To do that Url wants a full url,
+    // so we give it a fake one. We're only using the path anyway!
+    let full_url =format!("http://leptos.dev{}", path);
+    let Ok(url) = Url::parse(&full_url) else{
+        println!("Failed to parse: {full_url:?}");
+    return None;
+    };
+    REGISTERED_SERVER_FUNCTIONS.get_mut(url.path()).map(|f| f.clone())
 }
 
 /// Merge together two sets of headers, deleting any in the first set of Headers that have a key in
