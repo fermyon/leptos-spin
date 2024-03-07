@@ -15,7 +15,10 @@ impl ResponseOptions {
         let mut inner = self.inner.write().unwrap();
         inner.status = Some(status);
     }
-
+    pub fn status_is_set(&self) -> bool {
+        let inner = self.inner.read().unwrap();
+        inner.status.is_some()
+    }
     pub fn headers(&self) -> Headers {
         self.inner.read().unwrap().headers.clone()
     }
@@ -30,7 +33,7 @@ impl ResponseOptions {
     // Creates a ResponseOptions object with a default 200 status and no headers
     // Useful for server functions
     pub fn default_without_headers() -> Self {
-        Self{
+        Self {
             inner: Arc::new(RwLock::new(ResponseOptionsInner::default_without_headers())),
         }
     }
@@ -51,10 +54,10 @@ impl Default for ResponseOptionsInner {
     }
 }
 
-impl ResponseOptionsInner{
+impl ResponseOptionsInner {
     // Creates a ResponseOptionsInner object with a default 200 status and no headers
     // Useful for server functions
-    pub fn default_without_headers() -> Self{
+    pub fn default_without_headers() -> Self {
         Self {
             status: Default::default(),
             headers: Headers::new(&[]),
