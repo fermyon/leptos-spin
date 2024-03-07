@@ -52,26 +52,46 @@ handle_server_fns_with_context(req, resp_out, ||{}).await;
 }
 pub async fn handle_server_fns_with_context(req: IncomingRequest, resp_out: ResponseOutparam, additional_context: impl Fn() + 'static + Clone + Send) {
     let pq = req.path_with_query().unwrap_or_default();
-    let (spin_res, res_options, runtime) = 
+
+    let (spin_res, req_parts, res_options, runtime) = 
         match crate::server_fn::get_server_fn_by_path(&pq) {
             Some(lepfn) => {
-            // TODO: better checking here - again using the captures might help
             let runtime = create_runtime();
             let req_parts = RequestParts::new_from_req(&req);
-            provide_context(req_parts);
+            provide_context(req_parts.clone());
             let res_options = ResponseOptions::default_without_headers();
             provide_context(res_options.clone());
             additional_context();
             let spin_req = SpinRequest::new_from_req(req);
-            (lepfn.clone().run(spin_req).await, res_options, runtime)
+            (lepfn.clone().run(spin_req).await, req_parts, res_options, runtime)
         },
             None => panic!("Server FN path {} not found", &pq)
         
-        //path_segs.remove(0);
     };
-    let status = res_options.status().unwrap_or(spin_res.0.status_code);
-    let headers = merge_headers(spin_res.0.headers, res_options.headers());
+        // If the Accept header contains text/html, than this is a request from 
+        // a regular html form, so we should setup a redirect to either the referrer
+        // or the user specified location
 
+        let req_headers = Headers::new(req_parts.headers());
+        let accepts_html = &req_headers.get("Accept")[0];
+        let accepts_html_bool = String::from_utf8_lossy(accepts_html).contains("text/html");
+
+        if accepts_html_bool {
+            
+            let referrer = &req_headers.get("Referer")[0];
+            let location = &req_headers.get("Location");
+            if location.is_empty(){
+                res_options.insert_header("location", referrer.to_owned());
+            }
+            // Set status and header for redirect
+            if !res_options.status_is_set(){
+                res_options.set_status(302);
+            }
+
+        } 
+
+    let headers = merge_headers(spin_res.0.headers, res_options.headers());
+    let status = res_options.status().unwrap_or(spin_res.0.status_code);
     match spin_res.0.body {
         SpinBody::Plain(r) => {
             let og = OutgoingResponse::new(status, &headers);
