@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use futures::{SinkExt,Stream,StreamExt};
 use leptos::{provide_context, use_context, LeptosOptions, RuntimeId};
 use leptos_router::RouteListing;
@@ -155,7 +153,8 @@ async fn render_route_with_context<IV>(
 // This is a backstop - the app should normally include a "/*"" route
 // mapping to a NotFound Leptos component.
 async fn not_found(resp_out: ResponseOutparam) {
-    let og = OutgoingResponse::new(404, &Headers::new(&[]));
+    let og = OutgoingResponse::new(Headers::new());
+    og.set_status_code(404).expect("Failed to set status'");
     resp_out.set(og);
 }
 
@@ -192,7 +191,8 @@ async fn render_view_into_response_stm_async_mode(
     let status_code = resp_opts.status().unwrap_or(200);
     let headers = resp_opts.headers();
 
-    let og = OutgoingResponse::new(status_code, &headers);
+    let og = OutgoingResponse::new(headers);
+    og.set_status_code(status_code).expect("Failed to set status");
     let mut ogbod = og.take_body();
     resp_out.set(og);
     ogbod.send(html.into_bytes()).await.unwrap();
@@ -256,7 +256,8 @@ async fn build_stream_response(
     let status_code = resp_opts.status().unwrap_or(200);
     let headers = resp_opts.headers();
 
-    let og = OutgoingResponse::new(status_code, &headers);
+    let og = OutgoingResponse::new(headers);
+    og.set_status_code(status_code).expect("Failed to set status");
     let mut ogbod = og.take_body();
     resp_out.set(og);
 
@@ -298,8 +299,8 @@ pub fn redirect(path: &str) {
         // insert the Location header in any case
         res.insert_header("location", path);
 
-        let req_headers = Headers::new(req.headers());
-        let accepts_html = &req_headers.get("Accept")[0];
+        let req_headers = Headers::from_list(req.headers()).expect("Failed to construct Headers from Request Headers");
+        let accepts_html = &req_headers.get(&"Accept".to_string())[0];
         let accepts_html_bool = String::from_utf8_lossy(accepts_html).contains("text/html");
         if accepts_html_bool {
             // if the request accepts text/html, it's a plain form request and needs
@@ -344,12 +345,13 @@ fn leptos_corrected_path(req: &url::Url) -> String {
 }
 
 fn url(req: &IncomingRequest) -> String {
-    let full_url = &req.headers().get("spin-full-url")[0];
+    let full_url = &req.headers().get(&"spin-full-url".to_string())[0];
     String::from_utf8_lossy(full_url).to_string()
 }
 
 fn log_and_server_error(message: impl Into<String>, resp_out: ResponseOutparam) {
     println!("Error: {}", message.into());
-    let response = spin_sdk::http::OutgoingResponse::new(500, &spin_sdk::http::Fields::new(&[]));
+    let response = spin_sdk::http::OutgoingResponse::new(spin_sdk::http::Fields::new());
+    response.set_status_code(500).expect("Failed to set status");
     resp_out.set(response);
 }

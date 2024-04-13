@@ -72,14 +72,14 @@ pub async fn handle_server_fns_with_context(req: IncomingRequest, resp_out: Resp
         // a regular html form, so we should setup a redirect to either the referrer
         // or the user specified location
 
-        let req_headers = Headers::new(req_parts.headers());
-        let accepts_html = &req_headers.get("Accept")[0];
+        let req_headers = Headers::from_list(req_parts.headers()).expect("Failed to construct Headers from Request Input for a Server Fn.");
+        let accepts_html = &req_headers.get(&"Accept".to_string())[0];
         let accepts_html_bool = String::from_utf8_lossy(accepts_html).contains("text/html");
 
         if accepts_html_bool {
             
-            let referrer = &req_headers.get("Referer")[0];
-            let location = &req_headers.get("Location");
+            let referrer = &req_headers.get(&"Referer".to_string())[0];
+            let location = &req_headers.get(&"Location".to_string());
             if location.is_empty(){
                 res_options.insert_header("location", referrer.to_owned());
             }
@@ -94,13 +94,15 @@ pub async fn handle_server_fns_with_context(req: IncomingRequest, resp_out: Resp
     let status = res_options.status().unwrap_or(spin_res.0.status_code);
     match spin_res.0.body {
         SpinBody::Plain(r) => {
-            let og = OutgoingResponse::new(status, &headers);
+            let og = OutgoingResponse::new(headers);
+            og.set_status_code(status).expect("Failed to set Status");
             let mut ogbod = og.take_body();
             resp_out.set(og);
             ogbod.send(r).await.unwrap();
         }
         SpinBody::Streaming(mut s) => {
-            let og = OutgoingResponse::new(status, &headers);
+            let og = OutgoingResponse::new(headers);
+            og.set_status_code(status).expect("Failed to set Status");
             let mut res_body = og.take_body();
             resp_out.set(og);
 
@@ -153,5 +155,5 @@ pub fn merge_headers(h1: Headers, h2: Headers) -> Headers {
             merged_vec.push((k.to_string(), v.to_vec()))
         }
     });
-    Headers::new(&merged_vec)
+    Headers::from_list(&merged_vec).expect("Failed to create headers from merged list")
 }

@@ -33,7 +33,7 @@ where
     fn to_content_type(&self) -> Option<Cow<'_, str>> {
         self.req
             .headers()
-            .get("Content-Type")
+            .get(&"Content-Type".to_string())
             .first()
             .map(|h| String::from_utf8_lossy(h))
             .map(Cow::into_owned)
@@ -43,7 +43,7 @@ where
     fn accepts(&self) -> Option<Cow<'_, str>> {
         self.req
             .headers()
-            .get("Accept")
+            .get(&"Accept".to_string())
             .first()
             .map(|h| String::from_utf8_lossy(h))
             .map(Cow::into_owned)
@@ -53,7 +53,7 @@ where
     fn referer(&self) -> Option<Cow<'_, str>> {
         self.req
             .headers()
-            .get("Referer")
+            .get(&"Referer".to_string())
             .first()
             .map(|h| String::from_utf8_lossy(h))
             .map(Cow::into_owned)
