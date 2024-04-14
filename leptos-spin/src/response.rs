@@ -33,7 +33,9 @@ where
     CustErr: Send + Sync + Debug + FromStr + Display + 'static,
 {
     fn try_from_string(content_type: &str, data: String) -> Result<Self, ServerFnError<CustErr>> {
-        let headers = Headers::new(&[("Content-Type".to_string(), content_type.into())]);
+        let headers =
+            Headers::from_list(&[("Content-Type".to_string(), content_type.as_bytes().to_vec())])
+                .expect("Failed to create Headers from String Response Input");
         let parts = SpinResponseParts::builder()
             .status_code(200)
             .headers(headers)
@@ -43,7 +45,8 @@ where
     }
 
     fn try_from_bytes(content_type: &str, data: Bytes) -> Result<Self, ServerFnError<CustErr>> {
-        let headers = Headers::new(&[("Content-Type".to_string(), content_type.into())]);
+        let headers = Headers::from_list(&[("Content-Type".to_string(), content_type.into())])
+            .expect("Failed to create Headers from Bytes Response Input");
         let parts = SpinResponseParts::builder()
             .status_code(200)
             .headers(headers)
@@ -61,7 +64,8 @@ where
                 .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
         });
 
-        let headers = Headers::new(&[("Content-Type".to_string(), content_type.into())]);
+        let headers = Headers::from_list(&[("Content-Type".to_string(), content_type.into())])
+            .expect("Failed to create Headers from Stream Response Input");
         let parts = SpinResponseParts::builder()
             .status_code(200)
             .headers(headers)
@@ -71,7 +75,8 @@ where
     }
 
     fn error_response(path: &str, err: &ServerFnError<CustErr>) -> Self {
-        let headers = Headers::new(&[(SERVER_FN_ERROR_HEADER.to_string(), path.into())]);
+        let headers = Headers::from_list(&[(SERVER_FN_ERROR_HEADER.to_string(), path.into())])
+            .expect("Failed to create Error Response. This should be impossible");
         let parts = SpinResponseParts::builder()
             .status_code(500)
             .headers(headers)

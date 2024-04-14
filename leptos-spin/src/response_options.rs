@@ -24,11 +24,17 @@ impl ResponseOptions {
     }
     pub fn insert_header(&self, name: &str, value: impl Into<Vec<u8>>) {
         let inner = self.inner.write().unwrap();
-        inner.headers.set(name, &[value.into()]);
+        inner
+            .headers
+            .set(&name.to_string(), &[value.into()])
+            .expect("Failed to set header");
     }
     pub fn append_header(&self, name: &str, value: &[u8]) {
         let inner = self.inner.write().unwrap();
-        inner.headers.append(name, value);
+        inner
+            .headers
+            .append(&name.to_string(), &value.to_vec())
+            .expect("Failed to append header");
     }
     // Creates a ResponseOptions object with a default 200 status and no headers
     // Useful for server functions
@@ -47,9 +53,16 @@ struct ResponseOptionsInner {
 
 impl Default for ResponseOptionsInner {
     fn default() -> Self {
+        let headers = Headers::new();
+        headers
+            .append(
+                &"content-type".to_string(),
+                &"text/html".as_bytes().to_vec(),
+            )
+            .expect("Failed to append headers");
         Self {
             status: Default::default(),
-            headers: Headers::new(&[("content-type".to_owned(), "text/html".into())]),
+            headers,
         }
     }
 }
@@ -60,7 +73,7 @@ impl ResponseOptionsInner {
     pub fn default_without_headers() -> Self {
         Self {
             status: Default::default(),
-            headers: Headers::new(&[]),
+            headers: Headers::new(),
         }
     }
 }
