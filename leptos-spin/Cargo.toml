@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 description = "Spin support for Leptos"
 license = "Apache-2.0"
-homepage = "https://github.com/fermyon/leptos-spin"
+repository = "https://github.com/fermyon/leptos-spin"
 
 [dependencies]
 dashmap = "5.5.3"
