@@ -17,7 +17,6 @@ leptos_integration_utils = { version = "0.6.6", optional = true }
 leptos_meta = "0.6.6"
 leptos_router = "0.6.6"
 leptos-spin = { version = "0.2.0", optional = true }
-serde = "1.0.192"
 spin-sdk = { version = "3", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
