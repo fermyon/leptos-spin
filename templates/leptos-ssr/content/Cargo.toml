@@ -12,7 +12,6 @@ crate-type = [ "cdylib" ]
 anyhow = "1"
 cfg-if = "1"
 console_error_panic_hook = "0.1"
-http = "1.1"
 leptos = "0.6.6"
 leptos_integration_utils = { version = "0.6.6", optional = true }
 leptos_meta = "0.6.6"
