@@ -3,20 +3,12 @@ mod app;
 #[cfg(feature = "ssr")]
 mod server;
 
-use cfg_if::cfg_if;
+#[cfg(feature = "hydrate")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn hydrate() {
+    use app::App;
 
-cfg_if! {
-if #[cfg(feature = "hydrate")] {
+    console_error_panic_hook::set_once();
 
-  use wasm_bindgen::prelude::wasm_bindgen;
-
-    #[wasm_bindgen]
-    pub fn hydrate() {
-      use app::*;
-
-      console_error_panic_hook::set_once();
-
-      leptos::mount_to_body(App);
-    }
-}
+    leptos::mount_to_body(App);
 }
