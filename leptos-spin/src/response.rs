@@ -4,6 +4,8 @@ use leptos::server_fn::error::{
     ServerFnError, ServerFnErrorErr, ServerFnErrorSerde, SERVER_FN_ERROR_HEADER,
 };
 use leptos::server_fn::response::Res;
+use leptos_integration_utils::ExtendResponse;
+use spin_sdk::http::conversions::FromBody;
 use spin_sdk::http::Headers;
 use std::pin::Pin;
 use std::{
@@ -11,9 +13,50 @@ use std::{
     str::FromStr,
 };
 use typed_builder::TypedBuilder;
+
+use crate::ResponseOptions;
 /// This is here because the orphan rule does not allow us to implement it on IncomingRequest with
 /// the generic error. So we have to wrap it to make it happy
 pub struct SpinResponse(pub SpinResponseParts);
+
+impl ExtendResponse for SpinResponse {
+    type ResponseOptions = ResponseOptions;
+
+    fn from_stream(stream: impl Stream<Item = String> + Send + 'static) -> Self {
+        Self(
+            SpinResponseParts::builder()
+                .body(SpinBody::Streaming(Box::pin(stream.map(|chunk| {
+                    Ok(Bytes::from_body(chunk.as_bytes().to_vec()))
+                }))))
+                .headers(Headers::new())
+                .status_code(200)
+                .build(),
+        )
+    }
+
+    fn extend_response(&mut self, res_options: &Self::ResponseOptions) {
+        if let Some(status) = res_options.status() {
+            self.0.status_code = status;
+        }
+
+        for (name, value) in res_options.headers().entries() {
+            // TODO: verify if append or replace
+            self.0.headers.append(&name, &value);
+        }
+    }
+
+    fn set_default_content_type(&mut self, content_type: &str) {
+        let content_type_header = "Content-Type".to_string();
+        if !self.0.headers.has(&content_type_header) {
+            // Set the Content Type headers on all responses. This makes Firefox show the page source
+            // without complaining
+            // TODO: verify if append or replace
+            self.0
+                .headers
+                .set(&content_type_header, &[content_type.as_bytes().to_vec()]);
+        }
+    }
+}
 
 #[derive(TypedBuilder)]
 pub struct SpinResponseParts {

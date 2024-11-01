@@ -58,12 +58,12 @@ fn generate_route_list<IV>(app_fn: impl Fn() -> IV + 'static + Clone) -> Vec<Rou
 where
     IV: leptos::IntoView + 'static,
 {
-    let Some(routes) = leptos_router::RouteList::generate(app_fn) else {
-        return vec![];
+    let routes = match leptos_router::RouteList::generate(app_fn) {
+        Some(route_list) => route_list.into_inner(),
+        None => vec![],
     };
 
     let routes = routes
-        .into_inner()
         .into_iter()
         .map(empty_to_slash)
         .map(leptos_wildcards_to_spin)
