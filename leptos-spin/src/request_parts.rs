@@ -17,6 +17,15 @@ impl RequestParts {
             headers: req.headers().into_headers(),
         }
     }
+
+    pub fn new(method: Method, scheme: Option<Scheme>, headers: Vec<(String, Vec<u8>)>) -> Self {
+        Self {
+            method,
+            scheme,
+            headers,
+        }
+    }
+
     /// Get the Headers for the Request
     pub fn headers(&self) -> &Vec<(String, Vec<u8>)> {
         &self.headers
@@ -31,9 +40,10 @@ impl RequestParts {
     }
     /// Get the full URL for the Request
     pub fn url(&self) -> Option<&str> {
-        let Some((_, full_url_header)) = self.headers.iter().find(|(name, _)| name == "spin-full-url") else {
-            return None;
-        };
+        let (_, full_url_header) = self
+            .headers
+            .iter()
+            .find(|(name, _)| name == "spin-full-url")?;
         std::str::from_utf8(full_url_header).ok()
     }
 }
@@ -47,11 +57,15 @@ mod tests {
         let parts = RequestParts {
             method: Method::Get,
             scheme: Some(Scheme::Https),
-            headers: vec![
-                ("spin-full-url".to_string(), "https://example.com/test?query".as_bytes().to_vec()),
-            ],
+            headers: vec![(
+                "spin-full-url".to_string(),
+                "https://example.com/test?query".as_bytes().to_vec(),
+            )],
         };
-        assert_eq!("https://example.com/test?query", parts.url().expect("should have had a URL"));
+        assert_eq!(
+            "https://example.com/test?query",
+            parts.url().expect("should have had a URL")
+        );
     }
 
     #[test]
@@ -69,9 +83,7 @@ mod tests {
         let parts = RequestParts {
             method: Method::Get,
             scheme: Some(Scheme::Https),
-            headers: vec![
-                ("spin-full-url".to_string(), vec![0xe2, 0x82, 0x28]),
-            ],
+            headers: vec![("spin-full-url".to_string(), vec![0xe2, 0x82, 0x28])],
         };
         assert_eq!(None, parts.url(), "should have NOT had a URL");
     }

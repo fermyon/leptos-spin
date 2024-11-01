@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use leptos_router::{PathSegment, RouteListing};
-use routefinder::{RouteSpec, Router, Segment};
+use routefinder::{Router, Segment};
 
 pub struct RouteTable(Router<Option<RouteListing>>);
 
@@ -22,14 +22,14 @@ impl RouteTable {
         for listing in routes {
             let path: Vec<Segment> = listing
                 .path()
-                .into_iter()
+                .iter()
                 .map(|segment| match segment {
                     // TODO: verify all these mappings
                     PathSegment::Unit => Segment::Exact("".to_owned().into()),
-                    PathSegment::Static(cow) => Segment::Exact(cow.to_owned().into()),
-                    PathSegment::Param(cow) => Segment::Param(cow.to_owned().into()),
-                    PathSegment::OptionalParam(cow) => Segment::Param(cow.to_owned().into()),
-                    PathSegment::Splat(cow) => Segment::Exact(cow.to_owned().into()),
+                    PathSegment::Static(cow) => Segment::Exact(cow.clone().into()),
+                    PathSegment::Param(cow) => Segment::Param(cow.clone().into()),
+                    PathSegment::OptionalParam(cow) => Segment::Param(cow.clone().into()),
+                    PathSegment::Splat(cow) => Segment::Exact(cow.clone().into()),
                 })
                 .collect();
             rf.add(path, Some(listing)).unwrap();

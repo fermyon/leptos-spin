@@ -5,8 +5,8 @@ use leptos::server_fn::error::{
 };
 use leptos::server_fn::response::Res;
 use leptos_integration_utils::ExtendResponse;
-use spin_sdk::http::conversions::FromBody;
-use spin_sdk::http::Headers;
+use spin_sdk::http::conversions::{FromBody, IntoBody};
+use spin_sdk::http::{Headers, IntoResponse};
 use std::pin::Pin;
 use std::{
     fmt::{Debug, Display},
@@ -54,6 +54,30 @@ impl ExtendResponse for SpinResponse {
             self.0
                 .headers
                 .set(&content_type_header, &[content_type.as_bytes().to_vec()]);
+        }
+    }
+}
+
+impl IntoResponse for SpinResponse {
+    fn into_response(self) -> spin_sdk::http::Response {
+        let SpinResponseParts {
+            status_code,
+            headers,
+            body,
+        } = self.0;
+        spin_sdk::http::Response::builder()
+            .body(body)
+            .headers(headers)
+            .status(status_code)
+            .build()
+    }
+}
+
+impl IntoBody for SpinBody {
+    fn into_body(self) -> Vec<u8> {
+        match self {
+            SpinBody::Plain(vec) => vec,
+            SpinBody::Streaming(pin) => todo!("Need to figure this one out"),
         }
     }
 }
