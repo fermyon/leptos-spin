@@ -12,7 +12,7 @@ proc-macro = true
 [dependencies]
 http = "1.0.0"
 proc-macro-error = "1.0.4"
-server_fn_macro = "0.6.3"
+server_fn_macro = "0.7.0-rc0"
 syn = "2.0.48"
 
 [features]

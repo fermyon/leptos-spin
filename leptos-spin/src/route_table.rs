@@ -1,5 +1,7 @@
-use leptos_router::RouteListing;
-use routefinder::Router;
+use std::borrow::Cow;
+
+use leptos_router::{PathSegment, RouteListing};
+use routefinder::{RouteSpec, Router, Segment};
 
 pub struct RouteTable(Router<Option<RouteListing>>);
 
@@ -18,7 +20,18 @@ impl RouteTable {
 
         let mut rf = Router::new();
         for listing in routes {
-            let path = listing.path().to_owned();
+            let path: Vec<Segment> = listing
+                .path()
+                .into_iter()
+                .map(|segment| match segment {
+                    // TODO: verify all these mappings
+                    PathSegment::Unit => Segment::Exact("".to_owned().into()),
+                    PathSegment::Static(cow) => Segment::Exact(cow.to_owned().into()),
+                    PathSegment::Param(cow) => Segment::Param(cow.to_owned().into()),
+                    PathSegment::OptionalParam(cow) => Segment::Param(cow.to_owned().into()),
+                    PathSegment::Splat(cow) => Segment::Exact(cow.to_owned().into()),
+                })
+                .collect();
             rf.add(path, Some(listing)).unwrap();
         }
 
@@ -45,9 +58,12 @@ fn generate_route_list<IV>(app_fn: impl Fn() -> IV + 'static + Clone) -> Vec<Rou
 where
     IV: leptos::IntoView + 'static,
 {
-    let (routes, _static_data_map) = leptos_router::generate_route_list_inner(app_fn);
+    let Some(routes) = leptos_router::RouteList::generate(app_fn) else {
+        return vec![];
+    };
 
     let routes = routes
+        .into_inner()
         .into_iter()
         .map(empty_to_slash)
         .map(leptos_wildcards_to_spin)
@@ -55,8 +71,10 @@ where
 
     if routes.is_empty() {
         vec![RouteListing::new(
-            "/",
-            "",
+            vec![
+                PathSegment::Static(std::borrow::Cow::Borrowed("/")),
+                PathSegment::Unit,
+            ],
             Default::default(),
             [leptos_router::Method::Get],
             None,
@@ -71,11 +89,17 @@ fn empty_to_slash(listing: RouteListing) -> RouteListing {
     let path = listing.path();
     if path.is_empty() {
         return RouteListing::new(
-            "/",
-            listing.path(),
-            listing.mode(),
+            listing
+                .path()
+                .iter()
+                .map(|segment| match segment {
+                    PathSegment::Unit => PathSegment::Static("/".into()),
+                    other => other.to_owned(),
+                })
+                .collect::<Vec<_>>(),
+            listing.mode().to_owned(),
             listing.methods(),
-            listing.static_mode(),
+            listing.regenerate().to_owned(),
         );
     }
     listing
@@ -83,13 +107,17 @@ fn empty_to_slash(listing: RouteListing) -> RouteListing {
 
 fn leptos_wildcards_to_spin(listing: RouteListing) -> RouteListing {
     // TODO: wildcards, parameters, etc etc etc.
-    let path = listing.path();
-    let path2 = path.replace("*any", "*");
     RouteListing::new(
-        path2,
-        listing.path(),
-        listing.mode(),
+        listing
+            .path()
+            .iter()
+            .map(|segment| match segment {
+                PathSegment::Static(Cow::Borrowed("*any")) => PathSegment::Static("*".into()),
+                other => other.to_owned(),
+            })
+            .collect::<Vec<_>>(),
+        listing.mode().to_owned(),
         listing.methods(),
-        listing.static_mode(),
+        listing.regenerate().to_owned(),
     )
 }

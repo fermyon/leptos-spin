@@ -7,17 +7,17 @@ use crate::{
 use dashmap::DashMap;
 use futures::{SinkExt, StreamExt};
 use http::Method as HttpMethod;
+use leptos::prelude::provide_context;
 use leptos::server_fn::middleware::Service;
 /// Leptos Spin Integration for server functions
 use leptos::server_fn::{codec::Encoding, initialize_server_fn_map, ServerFn, ServerFnTraitObj};
-use leptos::{create_runtime, provide_context};
 use multimap::MultiMap;
 use once_cell::sync::Lazy;
 use spin_sdk::http::{Headers, IncomingRequest, OutgoingResponse, ResponseOutparam};
 use url::Url;
 
 #[allow(unused)] // used by server integrations
-type LazyServerFnMap<Req, Res> = Lazy<DashMap<&'static str, ServerFnTraitObj<Req, Res>>>;
+type LazyServerFnMap<Req, Res> = Lazy<DashMap<(String, http::Method), ServerFnTraitObj<Req, Res>>>;
 
 static REGISTERED_SERVER_FUNCTIONS: LazyServerFnMap<SpinRequest, SpinResponse> =
     initialize_server_fn_map!(SpinRequest, SpinResponse);
@@ -30,7 +30,7 @@ where
     T: ServerFn<ServerRequest = SpinRequest, ServerResponse = SpinResponse> + 'static,
 {
     REGISTERED_SERVER_FUNCTIONS.insert(
-        T::PATH,
+        (T::PATH.to_owned(), T::InputEncoding::METHOD),
         ServerFnTraitObj::new(
             T::PATH,
             T::InputEncoding::METHOD,
@@ -48,47 +48,54 @@ pub fn server_fn_paths() -> impl Iterator<Item = (&'static str, HttpMethod)> {
 }
 
 pub async fn handle_server_fns(req: IncomingRequest, resp_out: ResponseOutparam) {
-handle_server_fns_with_context(req, resp_out, ||{}).await;
+    handle_server_fns_with_context(req, resp_out, || {}).await;
 }
-pub async fn handle_server_fns_with_context(req: IncomingRequest, resp_out: ResponseOutparam, additional_context: impl Fn() + 'static + Clone + Send) {
+pub async fn handle_server_fns_with_context(
+    req: IncomingRequest,
+    resp_out: ResponseOutparam,
+    additional_context: impl Fn() + 'static + Clone + Send,
+) {
     let pq = req.path_with_query().unwrap_or_default();
 
-    let (spin_res, req_parts, res_options, runtime) = 
-        match crate::server_fn::get_server_fn_by_path(&pq) {
+    let (spin_res, req_parts, res_options) =
+        match crate::server_fn::get_server_fn_by_path_and_method(&pq, req.method().into()) {
             Some(lepfn) => {
-            let runtime = create_runtime();
-            let req_parts = RequestParts::new_from_req(&req);
-            provide_context(req_parts.clone());
-            let res_options = ResponseOptions::default_without_headers();
-            provide_context(res_options.clone());
-            additional_context();
-            let spin_req = SpinRequest::new_from_req(req);
-            (lepfn.clone().run(spin_req).await, req_parts, res_options, runtime)
-        },
-            None => panic!("Server FN path {} not found", &pq)
-        
-    };
-        // If the Accept header contains text/html, than this is a request from 
-        // a regular html form, so we should setup a redirect to either the referrer
-        // or the user specified location
-
-        let req_headers = Headers::from_list(req_parts.headers()).expect("Failed to construct Headers from Request Input for a Server Fn.");
-        let accepts_html = &req_headers.get(&"Accept".to_string())[0];
-        let accepts_html_bool = String::from_utf8_lossy(accepts_html).contains("text/html");
-
-        if accepts_html_bool {
-            
-            let referrer = &req_headers.get(&"Referer".to_string())[0];
-            let location = &req_headers.get(&"Location".to_string());
-            if location.is_empty(){
-                res_options.insert_header("location", referrer.to_owned());
+                // let runtime = create_runtime();
+                let req_parts = RequestParts::new_from_req(&req);
+                provide_context(req_parts.clone());
+                let res_options = ResponseOptions::default_without_headers();
+                provide_context(res_options.clone());
+                additional_context();
+                let spin_req = SpinRequest::new_from_req(req);
+                (
+                    lepfn.clone().run(spin_req).await,
+                    req_parts,
+                    res_options,
+                    // runtime,
+                )
             }
-            // Set status and header for redirect
-            if !res_options.status_is_set(){
-                res_options.set_status(302);
-            }
+            None => panic!("Server FN path {} not found", &pq),
+        };
+    // If the Accept header contains text/html, than this is a request from
+    // a regular html form, so we should setup a redirect to either the referrer
+    // or the user specified location
 
-        } 
+    let req_headers = Headers::from_list(req_parts.headers())
+        .expect("Failed to construct Headers from Request Input for a Server Fn.");
+    let accepts_html = &req_headers.get(&"Accept".to_string())[0];
+    let accepts_html_bool = String::from_utf8_lossy(accepts_html).contains("text/html");
+
+    if accepts_html_bool {
+        let referrer = &req_headers.get(&"Referer".to_string())[0];
+        let location = &req_headers.get(&"Location".to_string());
+        if location.is_empty() {
+            res_options.insert_header("location", referrer.to_owned());
+        }
+        // Set status and header for redirect
+        if !res_options.status_is_set() {
+            res_options.set_status(302);
+        }
+    }
 
     let headers = merge_headers(spin_res.0.headers, res_options.headers());
     let status = res_options.status().unwrap_or(spin_res.0.status_code);
@@ -111,19 +118,24 @@ pub async fn handle_server_fns_with_context(req: IncomingRequest, resp_out: Resp
             }
         }
     }
-    runtime.dispose();
+    // runtime.dispose();
 }
 
 /// Returns the server function at the given path
-pub fn get_server_fn_by_path(path: &str) -> Option<ServerFnTraitObj<SpinRequest, SpinResponse>> {
+pub fn get_server_fn_by_path_and_method(
+    path: &str,
+    method: http::Method,
+) -> Option<ServerFnTraitObj<SpinRequest, SpinResponse>> {
     // Sanitize Url to prevent query string or ids causing issues. To do that Url wants a full url,
     // so we give it a fake one. We're only using the path anyway!
-    let full_url =format!("http://leptos.dev{}", path);
-    let Ok(url) = Url::parse(&full_url) else{
+    let full_url = format!("http://leptos.dev{}", path);
+    let Ok(url) = Url::parse(&full_url) else {
         println!("Failed to parse: {full_url:?}");
-    return None;
+        return None;
     };
-    REGISTERED_SERVER_FUNCTIONS.get_mut(url.path()).map(|f| f.clone())
+    REGISTERED_SERVER_FUNCTIONS
+        .get_mut(&(url.path().to_owned(), method))
+        .map(|f| f.clone())
 }
 
 /// Merge together two sets of headers, deleting any in the first set of Headers that have a key in

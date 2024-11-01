@@ -1,5 +1,4 @@
-use futures::{SinkExt,Stream,StreamExt};
-use leptos::{provide_context, use_context, LeptosOptions, RuntimeId};
+use futures::{SinkExt, Stream, StreamExt};
 use leptos_router::RouteListing;
 use route_table::RouteMatch;
 use spin_sdk::http::{Headers, IncomingRequest, OutgoingResponse, ResponseOutparam};
@@ -11,27 +10,33 @@ pub mod route_table;
 pub mod server_fn;
 
 use crate::server_fn::handle_server_fns_with_context;
+use leptos::{
+    config::LeptosOptions,
+    prelude::{provide_context, use_context},
+    server_fn::redirect::REDIRECT_HEADER,
+    IntoView,
+};
 pub use request_parts::RequestParts;
 pub use response_options::ResponseOptions;
 pub use route_table::RouteTable;
-use leptos::server_fn::redirect::REDIRECT_HEADER;
 
 pub async fn render_best_match_to_stream<IV>(
     req: IncomingRequest,
     resp_out: ResponseOutparam,
     routes: &RouteTable,
-    app_fn: impl Fn() -> IV + 'static + Clone,
+    app_fn: impl Fn() -> IV + 'static + Clone + Send,
     leptos_opts: &LeptosOptions,
 ) where
     IV: leptos::IntoView + 'static,
 {
-    render_best_match_to_stream_with_context(req, resp_out, routes, app_fn, || {},  leptos_opts).await;
+    render_best_match_to_stream_with_context(req, resp_out, routes, app_fn, || {}, leptos_opts)
+        .await;
 }
 pub async fn render_best_match_to_stream_with_context<IV>(
     req: IncomingRequest,
     resp_out: ResponseOutparam,
     routes: &RouteTable,
-    app_fn: impl Fn() -> IV + 'static + Clone,
+    app_fn: impl Fn() -> IV + 'static + Clone + Send,
     additional_context: impl Fn() + Clone + Send + 'static,
     leptos_opts: &LeptosOptions,
 ) where
@@ -43,9 +48,20 @@ pub async fn render_best_match_to_stream_with_context<IV>(
 
     match routes.best_match(path) {
         RouteMatch::Route(best_listing) => {
-            render_route_with_context(url, req, resp_out, app_fn, additional_context, leptos_opts, &best_listing).await
+            render_route_with_context(
+                url,
+                req,
+                resp_out,
+                app_fn,
+                additional_context,
+                leptos_opts,
+                &best_listing,
+            )
+            .await
         }
-        RouteMatch::ServerFn => handle_server_fns_with_context(req, resp_out, additional_context).await,
+        RouteMatch::ServerFn => {
+            handle_server_fns_with_context(req, resp_out, additional_context).await
+        }
         RouteMatch::None => {
             eprintln!("No route found for {url}");
             not_found(resp_out).await
@@ -57,27 +73,27 @@ async fn render_route<IV>(
     url: url::Url,
     req: IncomingRequest,
     resp_out: ResponseOutparam,
-    app_fn: impl Fn() -> IV + 'static + Clone,
+    app_fn: impl Fn() -> IV + 'static + Clone + Send,
     leptos_opts: &LeptosOptions,
     listing: &RouteListing,
 ) where
     IV: leptos::IntoView + 'static,
 {
-    render_route_with_context(url, req, resp_out, app_fn, ||{}, leptos_opts, listing).await;
+    render_route_with_context(url, req, resp_out, app_fn, || {}, leptos_opts, listing).await;
 }
 
 async fn render_route_with_context<IV>(
     url: url::Url,
     req: IncomingRequest,
     resp_out: ResponseOutparam,
-    app_fn: impl Fn() -> IV + 'static + Clone,
+    app_fn: impl Fn() -> IV + 'static + Clone + Send,
     additional_context: impl Fn() + Clone + Send + 'static,
     leptos_opts: &LeptosOptions,
     listing: &RouteListing,
 ) where
     IV: leptos::IntoView + 'static,
 {
-    if listing.static_mode().is_some() {
+    if listing.static_route().is_some() {
         log_and_server_error("Static routes are not supported on Spin", resp_out);
         return;
     }
@@ -91,7 +107,12 @@ async fn render_route_with_context<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, req_parts, res_options, additional_context);
+                    provide_contexts(
+                        &url,
+                        req_parts.clone(),
+                        res_options.clone(),
+                        additional_context.clone(),
+                    );
                     (app_fn2)().into_view()
                 }
             };
@@ -105,7 +126,12 @@ async fn render_route_with_context<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, req_parts, res_options, additional_context);
+                    provide_contexts(
+                        &url,
+                        req_parts.clone(),
+                        res_options.clone(),
+                        additional_context.clone(),
+                    );
                     (app_fn2)().into_view()
                 }
             };
@@ -119,7 +145,12 @@ async fn render_route_with_context<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-                    provide_contexts(&url, req_parts, res_options, additional_context);
+                    provide_contexts(
+                        &url,
+                        req_parts.clone(),
+                        res_options.clone(),
+                        additional_context.clone(),
+                    );
                     (app_fn2)().into_view()
                 }
             };
@@ -134,8 +165,12 @@ async fn render_route_with_context<IV>(
                 let app_fn2 = app_fn.clone();
                 let res_options = resp_opts.clone();
                 move || {
-
-                    provide_contexts(&url, req_parts, res_options, additional_context);
+                    provide_contexts(
+                        &url,
+                        req_parts.clone(),
+                        res_options.clone(),
+                        additional_context.clone(),
+                    );
                     (app_fn2)().into_view()
                 }
             };
@@ -146,6 +181,10 @@ async fn render_route_with_context<IV>(
                 resp_out,
             )
             .await;
+        }
+        leptos_router::SsrMode::Static(static_route) => {
+            log_and_server_error("Static routes are not supported on Spin", resp_out);
+            return;
         }
     }
 }
@@ -158,13 +197,15 @@ async fn not_found(resp_out: ResponseOutparam) {
     resp_out.set(og);
 }
 
-async fn render_view_into_response_stm(
-    app: impl FnOnce() -> leptos::View + 'static,
+async fn render_view_into_response_stm<IV>(
+    app: impl Fn() -> IV + Clone + Send + 'static,
     resp_opts: ResponseOptions,
-    leptos_opts: &leptos::leptos_config::LeptosOptions,
+    leptos_opts: &LeptosOptions,
     resp_out: ResponseOutparam,
-) {
-    let (stm, runtime) = leptos::leptos_dom::ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
+) where
+    IV: IntoView + 'static,
+{
+    let (stm, runtime) = leptos::leptos_dom::helpers::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
         app,
         || leptos_meta::generate_head_metadata_separated().1.into(),
         || {},
@@ -172,12 +213,14 @@ async fn render_view_into_response_stm(
     build_stream_response(stm, leptos_opts, resp_opts, resp_out, runtime).await;
 }
 
-async fn render_view_into_response_stm_async_mode(
-    app: impl FnOnce() -> leptos::View + 'static,
+async fn render_view_into_response_stm_async_mode<IV>(
+    app: impl Fn() -> IV + Clone + Send + 'static,
     resp_opts: ResponseOptions,
-    leptos_opts: &leptos::leptos_config::LeptosOptions,
+    leptos_opts: &LeptosOptions,
     resp_out: ResponseOutparam,
-) {
+) where
+    IV: IntoView + 'static,
+{
     // In the Axum integration, all this happens in a separate task, and sends back
     // to the function via a futures::channel::oneshot(). WASI doesn't have an
     // equivalent for that yet, so for now, just truck along.
@@ -192,18 +235,21 @@ async fn render_view_into_response_stm_async_mode(
     let headers = resp_opts.headers();
 
     let og = OutgoingResponse::new(headers);
-    og.set_status_code(status_code).expect("Failed to set status");
+    og.set_status_code(status_code)
+        .expect("Failed to set status");
     let mut ogbod = og.take_body();
     resp_out.set(og);
     ogbod.send(html.into_bytes()).await.unwrap();
 }
 
-async fn render_view_into_response_stm_in_order_mode(
-    app: impl FnOnce() -> leptos::View + 'static,
+async fn render_view_into_response_stm_in_order_mode<IV>(
+    app: impl Fn() -> IV + Clone + Send + 'static,
     leptos_opts: &LeptosOptions,
     resp_opts: ResponseOptions,
     resp_out: ResponseOutparam,
-) {
+) where
+    IV: IntoView + 'static,
+{
     let (stm, runtime) = leptos::ssr::render_to_stream_in_order_with_prefix_undisposed_with_context(
         app,
         || leptos_meta::generate_head_metadata_separated().1.into(),
@@ -213,12 +259,14 @@ async fn render_view_into_response_stm_in_order_mode(
     build_stream_response(stm, leptos_opts, resp_opts, resp_out, runtime).await;
 }
 
-async fn render_view_into_response_stm_partially_blocked_mode(
-    app: impl FnOnce() -> leptos::View + 'static,
+async fn render_view_into_response_stm_partially_blocked_mode<IV>(
+    app: impl Fn() -> IV + Clone + Send + 'static,
     leptos_opts: &LeptosOptions,
     resp_opts: ResponseOptions,
     resp_out: ResponseOutparam,
-) {
+) where
+    IV: IntoView + 'static,
+{
     let (stm, runtime) =
         leptos::ssr::render_to_stream_with_prefix_undisposed_with_context_and_block_replacement(
             app,
@@ -241,7 +289,7 @@ async fn build_stream_response(
     let first_app_chunk = stm2.next().await.unwrap_or_default();
     let (head, tail) = leptos_integration_utils::html_parts_separated(
         leptos_opts,
-        leptos::use_context::<leptos_meta::MetaContext>().as_ref(),
+        use_context::<leptos_meta::MetaContext>().as_ref(),
     );
 
     let mut stm3 = Box::pin(
@@ -257,7 +305,8 @@ async fn build_stream_response(
     let headers = resp_opts.headers();
 
     let og = OutgoingResponse::new(headers);
-    og.set_status_code(status_code).expect("Failed to set status");
+    og.set_status_code(status_code)
+        .expect("Failed to set status");
     let mut ogbod = og.take_body();
     resp_out.set(og);
 
@@ -299,7 +348,8 @@ pub fn redirect(path: &str) {
         // insert the Location header in any case
         res.insert_header("location", path);
 
-        let req_headers = Headers::from_list(req.headers()).expect("Failed to construct Headers from Request Headers");
+        let req_headers = Headers::from_list(req.headers())
+            .expect("Failed to construct Headers from Request Headers");
         let accepts_html = &req_headers.get(&"Accept".to_string())[0];
         let accepts_html_bool = String::from_utf8_lossy(accepts_html).contains("text/html");
         if accepts_html_bool {
@@ -320,7 +370,12 @@ pub fn redirect(path: &str) {
     }
 }
 
-fn provide_contexts(url: &url::Url, req_parts: RequestParts, res_options: ResponseOptions, additional_context: impl Fn() + Clone + Send + 'static) {
+fn provide_contexts(
+    url: &url::Url,
+    req_parts: RequestParts,
+    res_options: ResponseOptions,
+    additional_context: impl Fn() + Clone + Send + 'static,
+) {
     let path = leptos_corrected_path(url);
 
     let integration = leptos_router::ServerIntegration { path };
@@ -329,7 +384,7 @@ fn provide_contexts(url: &url::Url, req_parts: RequestParts, res_options: Respon
     provide_context(res_options);
     provide_context(req_parts);
     additional_context();
-    leptos_router::provide_server_redirect(redirect);
+    leptos_router::components::provide_server_redirect(redirect);
     #[cfg(feature = "nonce")]
     leptos::nonce::provide_nonce();
 }
