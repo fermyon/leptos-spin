@@ -24,11 +24,12 @@ Installed 1 template(s)
 +-------------------------------------------------------------+
 ```
 
-Once the template is installed, a mew leptos project can be instantiated using: 
+Once the template is installed, a mew leptos project can be instantiated using:
 
 ```bash
 spin new -t leptos-ssr my-leptos-app -a
 ```
+
 Before building and running the project [`cargo-leptos`](https://leptos-rs.github.io/leptos/ssr/21_cargo_leptos.html) needs to be installed:
 
 ```bash
