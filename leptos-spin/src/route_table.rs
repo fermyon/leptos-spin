@@ -89,14 +89,7 @@ fn empty_to_slash(listing: RouteListing) -> RouteListing {
     let path = listing.path();
     if path.is_empty() {
         return RouteListing::new(
-            listing
-                .path()
-                .iter()
-                .map(|segment| match segment {
-                    PathSegment::Unit => PathSegment::Static("/".into()),
-                    other => other.to_owned(),
-                })
-                .collect::<Vec<_>>(),
+            [PathSegment::Static("/".into())],
             listing.mode().to_owned(),
             listing.methods(),
             listing.regenerate().to_owned(),

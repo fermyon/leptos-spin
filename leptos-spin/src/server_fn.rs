@@ -59,7 +59,7 @@ pub async fn handle_server_fns_with_context(
 
     let (spin_res, req_parts, res_options) =
         match crate::server_fn::get_server_fn_by_path_and_method(&pq, req.method().into()) {
-            Some(lepfn) => {
+            Some(mut lepfn) => {
                 // let runtime = create_runtime();
                 let req_parts = RequestParts::new_from_req(&req);
                 provide_context(req_parts.clone());
@@ -67,12 +67,7 @@ pub async fn handle_server_fns_with_context(
                 provide_context(res_options.clone());
                 additional_context();
                 let spin_req = SpinRequest::new_from_req(req);
-                (
-                    lepfn.clone().run(spin_req).await,
-                    req_parts,
-                    res_options,
-                    // runtime,
-                )
+                (lepfn.run(spin_req).await, req_parts, res_options)
             }
             None => panic!("Server FN path {} not found", &pq),
         };
@@ -118,7 +113,6 @@ pub async fn handle_server_fns_with_context(
             }
         }
     }
-    // runtime.dispose();
 }
 
 /// Returns the server function at the given path
