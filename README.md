@@ -70,24 +70,21 @@ fn HomePage() -> impl IntoView {
 ## Usage
 
 ```rust
-use leptos::ServerFn;
-use leptos_spin::{render_best_match_to_stream, RouteTable};
-use spin_sdk::http::{ResponseOutparam, IncomingRequest};
-use spin_sdk::http_component;
+async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam) {
+    use leptos_wasi::prelude::Handler;
 
-#[http_component]
-async fn handle_request(req: IncomingRequest, resp_out: ResponseOutparam) {
-    let mut conf = leptos::get_configuration(None).await.unwrap();
-    conf.leptos_options.output_name = "sample".to_owned();
+    let mut conf = get_configuration(None).unwrap();
+    conf.leptos_options.output_name = Arc::from("test_leptos_new".to_owned());
+    let leptos_options = conf.leptos_options;
 
-    // A line like this for every server function
-    register_explicit::<crate::app::SaveCount>();
-
-    let app_fn = crate::app::App;
-
-    let mut routes = RouteTable::build(app_fn);
-    routes.add_server_fn_prefix("/api").unwrap();
-
-    render_best_match_to_stream(req, resp_out, &routes, app_fn, &conf.leptos_options).await
+    Handler::build(request, response_out)
+        .expect("could not create handler")
+        .with_server_fn::<SaveCount>()
+        // Fetch all available routes from your App.
+        .generate_routes(App)
+        // Actually process the request and write the response.
+        .handle_with_context(move || shell(leptos_options.clone()), || {})
+        .await
+        .expect("could not handle the request");
 }
 ```

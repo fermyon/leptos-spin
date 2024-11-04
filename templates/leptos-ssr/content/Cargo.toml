@@ -1,6 +1,6 @@
 [package]
 name = "{{project-name | kebab_case}}"
-authors = ["itowlson <ivan.towlson@fermyon.com>"]
+authors = ["itowlson <ivan.towlson@fermyon.com>", "Darwin Boersma <darwin@sadlark.com>"]
 description = ""
 version = "0.1.0"
 edition = "2021"
@@ -9,29 +9,28 @@ edition = "2021"
 crate-type = [ "cdylib" ]
 
 [dependencies]
-anyhow = "1"
 console_error_panic_hook = "0.1"
-leptos = "0.7.0-rc0"
-leptos_integration_utils = { version = "0.7.0-rc0", optional = true }
-leptos_meta = "0.7.0-rc0"
-leptos_router = "0.7.0-rc0"
-leptos-spin = { version = "0.2.0", optional = true }
+leptos = { git = "https://github.com/leptos-rs/leptos" }
+leptos_meta = { git = "https://github.com/leptos-rs/leptos" }
+leptos_router = { git = "https://github.com/leptos-rs/leptos" }
+leptos_wasi = { git = "https://github.com/ogghead/leptos_wasi", branch = "pre-rc1-building", optional = true }
 spin-sdk = { version = "3", optional = true }
+wasi = { version = "=0.13.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
 [workspace]
 
 [features]
-csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
-hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate", "dep:wasm-bindgen"]
+csr = ["leptos/csr"]
+hydrate = ["leptos/hydrate", "dep:wasm-bindgen"]
 ssr = [
   "leptos/ssr",
   "leptos_meta/ssr",
   "leptos_router/ssr",
   "leptos/spin",
   "dep:spin-sdk",
-  "dep:leptos-spin",
-  "dep:leptos_integration_utils"
+  "dep:leptos_wasi",
+  "dep:wasi",
 ]
 
 [package.metadata.leptos]
