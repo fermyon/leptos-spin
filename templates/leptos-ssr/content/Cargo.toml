@@ -10,9 +10,9 @@ crate-type = [ "cdylib" ]
 
 [dependencies]
 console_error_panic_hook = "0.1"
-leptos = { git = "https://github.com/leptos-rs/leptos" }
-leptos_meta = { git = "https://github.com/leptos-rs/leptos" }
-leptos_router = { git = "https://github.com/leptos-rs/leptos" }
+leptos = { version = "0.7.0-rc1" }
+leptos_meta = { version = "0.7.0-rc1" }
+leptos_router = { version = "0.7.0-rc1" }
 leptos_wasi = { git = "https://github.com/ogghead/leptos_wasi", branch = "pre-rc1-building", optional = true }
 spin-sdk = { version = "3", optional = true }
 wasi = { version = "=0.13.1", optional = true }
