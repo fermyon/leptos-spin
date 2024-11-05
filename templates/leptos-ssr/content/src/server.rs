@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use leptos::config::get_configuration;
 use leptos_wasi::prelude::{Executor, IncomingRequest, ResponseOutparam, WasiExecutor};
 use wasi::exports::http::incoming_handler::Guest;
