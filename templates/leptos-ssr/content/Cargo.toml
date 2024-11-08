@@ -13,7 +13,7 @@ console_error_panic_hook = "0.1"
 leptos = { version = "0.7.0-rc1" }
 leptos_meta = { version = "0.7.0-rc1" }
 leptos_router = { version = "0.7.0-rc1" }
-leptos_wasi = { git = "https://github.com/ogghead/leptos_wasi", branch = "pre-rc1-building", optional = true }
+leptos_wasi = { git = "https://github.com/leptos-rs/leptos_wasi", optional = true }
 spin-sdk = { version = "3", optional = true }
 wasi = { version = "=0.13.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
