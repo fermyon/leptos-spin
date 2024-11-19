@@ -36,7 +36,7 @@ async fn handle_request(
     use leptos_wasi::prelude::Handler;
 
     let mut conf = get_configuration(None).unwrap();
-    conf.leptos_options.output_name = Arc::from("newleptos".to_owned());
+    conf.leptos_options.output_name = Arc::from("{{project-name | snake_case}}".to_owned());
     let leptos_options = conf.leptos_options;
 
     Handler::build(request, response_out)?

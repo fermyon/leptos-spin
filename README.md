@@ -52,22 +52,25 @@ Now the app should be served at `http://127.0.0.1:3000`
 ## Usage
 
 ```rust
-async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam) {
+async fn handle_request(
+    request: IncomingRequest,
+    response_out: ResponseOutparam,
+) -> Result<(), HandlerError> {
     use leptos_wasi::prelude::Handler;
 
     let mut conf = get_configuration(None).unwrap();
-    conf.leptos_options.output_name = Arc::from("test_leptos_new".to_owned());
+    conf.leptos_options.output_name = Arc::from("testleptos".to_owned());
     let leptos_options = conf.leptos_options;
 
-    Handler::build(request, response_out)
-        .expect("could not create handler")
-        // Register server functions here
+    Handler::build(request, response_out)?
+        // NOTE: Add all server functions here to ensure functionality works as expected!
         .with_server_fn::<SaveCount>()
         // Fetch all available routes from your App.
         .generate_routes(App)
         // Actually process the request and write the response.
         .handle_with_context(move || shell(leptos_options.clone()), || {})
-        .await
-        .expect("could not handle the request");
+        .await?;
+    Ok(())
 }
+
 ```
