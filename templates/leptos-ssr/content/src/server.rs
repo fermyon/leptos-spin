@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use leptos::config::get_configuration;
-use leptos_wasi::prelude::{Executor, IncomingRequest, ResponseOutparam, WasiExecutor};
+use leptos_wasi::{
+    handler::HandlerError,
+    prelude::{Executor, IncomingRequest, ResponseOutparam, WasiExecutor},
+};
 use wasi::exports::http::incoming_handler::Guest;
 use wasi::http::proxy::export;
 
@@ -14,30 +17,37 @@ impl Guest for LeptosServer {
         // Initiate a single-threaded [`Future`] Executor so we can run the
         // rendering system and take advantage of bodies streaming.
         let executor = WasiExecutor::new(leptos_wasi::executor::Mode::Stalled);
-        Executor::init_local_custom_executor(executor.clone())
-            .expect("cannot init future executor");
+        if let Err(e) = Executor::init_local_custom_executor(executor.clone()) {
+            eprintln!("Got error while initializing leptos_wasi executor: {e:?}");
+            return;
+        }
         executor.run_until(async {
-            handle_request(request, response_out).await;
+            if let Err(e) = handle_request(request, response_out).await {
+                eprintln!("Got error while handling request: {e:?}");
+            }
         })
     }
 }
 
-async fn handle_request(request: IncomingRequest, response_out: ResponseOutparam) {
+async fn handle_request(
+    request: IncomingRequest,
+    response_out: ResponseOutparam,
+) -> Result<(), HandlerError> {
     use leptos_wasi::prelude::Handler;
 
     let mut conf = get_configuration(None).unwrap();
-    conf.leptos_options.output_name = Arc::from("{{project-name | snake_case}}".to_owned());
+    conf.leptos_options.output_name = Arc::from("newleptos".to_owned());
     let leptos_options = conf.leptos_options;
 
-    Handler::build(request, response_out)
-        .expect("could not create handler")
+    Handler::build(request, response_out)?
+        // NOTE: Add all server functions here to ensure functionality works as expected!
         .with_server_fn::<SaveCount>()
         // Fetch all available routes from your App.
         .generate_routes(App)
         // Actually process the request and write the response.
         .handle_with_context(move || shell(leptos_options.clone()), || {})
-        .await
-        .expect("could not handle the request");
+        .await?;
+    Ok(())
 }
 
 export!(LeptosServer with_types_in wasi);

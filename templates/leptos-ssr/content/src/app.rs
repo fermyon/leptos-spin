@@ -34,7 +34,7 @@ pub fn App() -> impl IntoView {
         <Meta name="viewport" content="width=device-width, initial-scale=1.0"/>
         <Meta name="theme-color" content="white"/>
 
-        <Title text="Welcome to Leptos X WebAssembly!"/>
+        <Title text="Welcome to Leptos X Spin!"/>
 
         <Router>
             <main>
