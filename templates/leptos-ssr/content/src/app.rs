@@ -78,8 +78,9 @@ fn NotFound() -> impl IntoView {
     {
         // this can be done inline because it's synchronous
         // if it were async, we'd use a server function
-        let resp = expect_context::<leptos_wasi::response::ResponseOptions>();
-        resp.set_status(leptos_wasi::prelude::StatusCode::NOT_FOUND);
+        if let Some(resp) = use_context::<leptos_wasi::response::ResponseOptions>() {
+            resp.set_status(leptos_wasi::prelude::StatusCode::NOT_FOUND);
+        }
     }
 
     view! { <h1>"Not Found"</h1> }

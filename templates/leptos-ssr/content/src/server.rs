@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use leptos::config::get_configuration;
 use leptos_wasi::{
     handler::HandlerError,
