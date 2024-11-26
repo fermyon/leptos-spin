@@ -2,7 +2,7 @@
 
 **THIS IS A WORK IN PROGRESS.** Actually 'in progress' probably oversells it. It is an early draft with a lot of learning as we go.
 
-This library provides integration services for running [Leptos](https://leptos-rs.github.io/leptos/) server-side applications in Spin.  It plays a role similar to Leptos' Actix and Axum integrations, bridging Spin's implementation of concepts and Leptos', and abstracting away common functionality to routing requests to Leptos views and server functions.
+This library provides integration services for running [Leptos](https://leptos-rs.github.io/leptos/) server-side applications in Spin. Previously, in Leptos versions 0.6 and below, a server integration similar to Leptos' Actix and Axum integrations was designed, published, and maintained in this repository (through the excellent work of @itowlson from Fermyon and *@benwis* from Leptos). As of Leptos 0.7, this integration relies on the [leptos_wasi crate](https://github.com/leptos-rs/leptos_wasi) now maintained by Leptos to provide a server. As `leptos_wasi` creates a [wasi-http](https://github.com/WebAssembly/wasi-http) component, Spin can seamlessly run this generated server and uses the [spin-fileserver](https://github.com/fermyon/spin-fileserver) component to vend client assets. This library integrates Spin's concepts and Leptos', allowing utilization of the vast ecosystem of Spin + WASI functionality in a serverless Leptos back-end.
 
 At the moment, this library is _entirely_ experimental. It has known gaps, names and APIs will change, and Leptos experts will no doubt have much to say about its design!
 
@@ -49,14 +49,14 @@ Now the app should be served at `http://127.0.0.1:3000`
 
 * All server functions (`#[server]`) **must** be explicitly registered (see usage sample below). In native code, Leptos uses a clever macro to register them automatically; unfortunately, that doesn't work in WASI.
 
-* When using a context value in a component in a `feature = "ssr"` block, you **must** call `use_context` **not** `expect_context`. `expect_context` will panic during routing.  E.g.
+* When using a context value in a component in a `feature = "ssr"` block, you **should** call `use_context` **not** `expect_context`. `expect_context` may panic during routing. `Request` is most likely to hit the problem, but it is overall recommended to prefer `use_context`. E.g.
 
 ```rust
 #[component]
 fn HomePage() -> impl IntoView {
     #[cfg(feature = "ssr")]
     {
-        if let Some(resp) = use_context::<leptos_spin::ResponseOptions>() {
+        if let Some(resp) = use_context::<leptos_wasi::response::ResponseOptions>() {
             resp.append_header("X-Utensil", "spork".as_bytes());
         };
     }
@@ -70,24 +70,24 @@ fn HomePage() -> impl IntoView {
 ## Usage
 
 ```rust
-use leptos::ServerFn;
-use leptos_spin::{render_best_match_to_stream, RouteTable};
-use spin_sdk::http::{ResponseOutparam, IncomingRequest};
-use spin_sdk::http_component;
+async fn handle_request(
+    request: IncomingRequest,
+    response_out: ResponseOutparam,
+) -> Result<(), HandlerError> {
+    use leptos_wasi::prelude::Handler;
 
-#[http_component]
-async fn handle_request(req: IncomingRequest, resp_out: ResponseOutparam) {
-    let mut conf = leptos::get_configuration(None).await.unwrap();
-    conf.leptos_options.output_name = "sample".to_owned();
+    let conf = get_configuration(None).unwrap();
+    let leptos_options = conf.leptos_options;
 
-    // A line like this for every server function
-    register_explicit::<crate::app::SaveCount>();
-
-    let app_fn = crate::app::App;
-
-    let mut routes = RouteTable::build(app_fn);
-    routes.add_server_fn_prefix("/api").unwrap();
-
-    render_best_match_to_stream(req, resp_out, &routes, app_fn, &conf.leptos_options).await
+    Handler::build(request, response_out)?
+        // NOTE: Add all server functions here to ensure functionality works as expected!
+        .with_server_fn::<SaveCount>()
+        // Fetch all available routes from your App.
+        .generate_routes(App)
+        // Actually process the request and write the response.
+        .handle_with_context(move || shell(leptos_options.clone()), || {})
+        .await?;
+    Ok(())
 }
+
 ```

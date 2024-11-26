@@ -1,19 +1,50 @@
-use leptos_spin::{render_best_match_to_stream, RouteTable, server_fn::register_explicit};
-use spin_sdk::http::{IncomingRequest, ResponseOutparam};
-use spin_sdk::http_component;
+use leptos::config::get_configuration;
+use leptos_wasi::{
+    handler::HandlerError,
+    prelude::{Executor, IncomingRequest, ResponseOutparam, WasiExecutor},
+};
+use wasi::exports::http::incoming_handler::Guest;
+use wasi::http::proxy::export;
 
-#[http_component]
-async fn handle_{{project-name | snake_case}}(req: IncomingRequest, resp_out: ResponseOutparam) {
-    let mut conf = leptos::get_configuration(None).await.unwrap();
-    conf.leptos_options.output_name = "{{project-name | snake_case}}".to_owned();
+use crate::app::{shell, App, SaveCount};
 
-    // Register server functions
-    register_explicit::<crate::app::SaveCount>();
+struct LeptosServer;
 
-    let app = crate::app::App;
-
-    let mut routes = RouteTable::build(app);
-    routes.add_server_fn_prefix("/api").unwrap();
-
-    render_best_match_to_stream(req, resp_out, &routes, app, &conf.leptos_options).await
+impl Guest for LeptosServer {
+    fn handle(request: IncomingRequest, response_out: ResponseOutparam) {
+        // Initiate a single-threaded [`Future`] Executor so we can run the
+        // rendering system and take advantage of bodies streaming.
+        let executor = WasiExecutor::new(leptos_wasi::executor::Mode::Stalled);
+        if let Err(e) = Executor::init_local_custom_executor(executor.clone()) {
+            eprintln!("Got error while initializing leptos_wasi executor: {e:?}");
+            return;
+        }
+        executor.run_until(async {
+            if let Err(e) = handle_request(request, response_out).await {
+                eprintln!("Got error while handling request: {e:?}");
+            }
+        })
+    }
 }
+
+async fn handle_request(
+    request: IncomingRequest,
+    response_out: ResponseOutparam,
+) -> Result<(), HandlerError> {
+    use leptos_wasi::prelude::Handler;
+
+    let conf = get_configuration(None).unwrap();
+    let leptos_options = conf.leptos_options;
+
+    Handler::build(request, response_out)?
+        // NOTE: Add all server functions here to ensure functionality works as expected!
+        .with_server_fn::<SaveCount>()
+        // Fetch all available routes from your App.
+        .generate_routes(App)
+        // Actually process the request and write the response.
+        .handle_with_context(move || shell(leptos_options.clone()), || {})
+        .await?;
+    Ok(())
+}
+
+export!(LeptosServer with_types_in wasi);

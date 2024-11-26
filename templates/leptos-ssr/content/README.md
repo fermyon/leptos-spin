@@ -1,7 +1,9 @@
+# {{project-name | kebab_case}}
+
 Prequisites:
 
-- Rust [with the `wasm32-wasi` target](https://developer.fermyon.com/spin/v2/install) - `rustup target add wasm32-wasi`
-- [Spin](https://developer.fermyon.com/spin/v2/install)
+- Rust [with the `wasm32-wasip1` target](https://www.rust-lang.org/tools/install) - `rustup target add wasm32-wasip1`
+- [Spin](https://developer.fermyon.com/spin/v3/install)
 - [`cargo-leptos`](https://github.com/leptos-rs/cargo-leptos#getting-started) - `cargo install --locked cargo-leptos`
 
 Build and run:
