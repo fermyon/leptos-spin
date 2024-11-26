@@ -58,8 +58,7 @@ async fn handle_request(
 ) -> Result<(), HandlerError> {
     use leptos_wasi::prelude::Handler;
 
-    let mut conf = get_configuration(None).unwrap();
-    conf.leptos_options.output_name = Arc::from("testleptos".to_owned());
+    let conf = get_configuration(None).unwrap();
     let leptos_options = conf.leptos_options;
 
     Handler::build(request, response_out)?
