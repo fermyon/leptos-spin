@@ -1,6 +1,6 @@
 [package]
 name = "{{project-name | kebab_case}}"
-authors = ["itowlson <ivan.towlson@fermyon.com>", "Darwin Boersma <darwin@sadlark.com>"]
+authors = ["{{authors}}"]
 description = ""
 version = "0.1.0"
 edition = "2021"
@@ -10,12 +10,12 @@ crate-type = [ "cdylib" ]
 
 [dependencies]
 console_error_panic_hook = "0.1"
-leptos = { version = "0.7.0-rc1" }
-leptos_meta = { version = "0.7.0-rc1" }
-leptos_router = { version = "0.7.0-rc1" }
-leptos_wasi = { git = "https://github.com/leptos-rs/leptos_wasi", rev = "249cf889b193785621170089b5fa964d47a43eea", optional = true }
+leptos = { version = "0.7.0-rc3" }
+leptos_meta = { version = "0.7.0-rc3" }
+leptos_router = { version = "0.7.0-rc3" }
+leptos_wasi = { version = "0.1.1", optional = true }
 spin-sdk = { version = "3", optional = true }
-# TODO: https://github.com/fermyon/spin/issues/2928, in meantime temporarily locking this to specific `wasi` crate minor version
+# `wasi` needs to be locked until https://github.com/fermyon/spin/issues/2928 lands in a release
 wasi = { version = "=0.13.2", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
