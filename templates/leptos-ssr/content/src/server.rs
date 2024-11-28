@@ -1,7 +1,10 @@
-use leptos::config::get_configuration;
+use leptos::{
+    config::get_configuration,
+    task::Executor as LeptosExecutor
+};
 use leptos_wasi::{
     handler::HandlerError,
-    prelude::{Executor, IncomingRequest, ResponseOutparam, WasiExecutor},
+    prelude::{IncomingRequest, ResponseOutparam, WasiExecutor},
 };
 use wasi::exports::http::incoming_handler::Guest;
 use wasi::http::proxy::export;
@@ -15,7 +18,7 @@ impl Guest for LeptosServer {
         // Initiate a single-threaded [`Future`] Executor so we can run the
         // rendering system and take advantage of bodies streaming.
         let executor = WasiExecutor::new(leptos_wasi::executor::Mode::Stalled);
-        if let Err(e) = Executor::init_local_custom_executor(executor.clone()) {
+        if let Err(e) = LeptosExecutor::init_local_custom_executor(executor.clone()) {
             eprintln!("Got error while initializing leptos_wasi executor: {e:?}");
             return;
         }
