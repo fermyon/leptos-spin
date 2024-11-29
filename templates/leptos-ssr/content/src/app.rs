@@ -9,10 +9,11 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
         <!DOCTYPE html>
         <html lang="en">
             <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <AutoReload options=options.clone() />
                 <HydrationScripts options=options.clone()/>
                 <MetaTags/>
-                <Stylesheet id="leptos" href="/pkg/{{project-name | snake_case}}.css"/>
             </head>
             <body>
                 <App/>
@@ -29,7 +30,7 @@ pub fn App() -> impl IntoView {
     let fallback = || view! { "Page not found." }.into_view();
 
     view! {
-        <Meta name="charset" content="UTF-8"/>
+        <Stylesheet id="leptos" href="/pkg/{{project-name | snake_case}}.css"/>
         <Meta name="description" content="A website running its server-side as a WASI Component :D"/>
 
         <Title text="Welcome to Leptos X Spin!"/>
