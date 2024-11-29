@@ -31,8 +31,6 @@ pub fn App() -> impl IntoView {
     view! {
         <Meta name="charset" content="UTF-8"/>
         <Meta name="description" content="A website running its server-side as a WASI Component :D"/>
-        <Meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-        <Meta name="theme-color" content="white"/>
 
         <Title text="Welcome to Leptos X Spin!"/>
 
