@@ -32,6 +32,7 @@ pub fn App() -> impl IntoView {
     view! {
         <Stylesheet id="leptos" href="/pkg/{{project-name | snake_case}}.css"/>
         <Meta name="description" content="A website running its server-side as a WASI Component :D"/>
+        <Meta name="theme-color" content="white"/>
 
         <Title text="Welcome to Leptos X Spin!"/>
 
