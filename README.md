@@ -29,8 +29,10 @@ spin new -t leptos-ssr my-leptos-app -a
 Before building and running the project [`cargo-leptos`](https://leptos-rs.github.io/leptos/ssr/21_cargo_leptos.html) needs to be installed:
 
 ```bash
-cargo install cargo-leptos
+cargo install --locked --version 0.2.22 cargo-leptos
 ```
+
+> The `cargo-leptos` version is sensitive to the project's `wasm-bindgen` version. If you update `cargo-leptos` to a different version, you may need to update `wasm-bindgen`, and vice versa.
 
 To build and run the created project, the following command can be used:
 
