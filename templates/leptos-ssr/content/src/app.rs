@@ -12,7 +12,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <AutoReload options=options.clone() />
-                <HydrationScripts options=options.clone()/>
+                <HydrationScripts options=options.clone() root="{{http-path}}"/>
                 <MetaTags/>
             </head>
             <body>
@@ -30,7 +30,7 @@ pub fn App() -> impl IntoView {
     let fallback = || view! { "Page not found." }.into_view();
 
     view! {
-        <Stylesheet id="leptos" href="/pkg/{{project-name | snake_case}}.css"/>
+        <Stylesheet id="leptos" href="{{http-path}}/pkg/{{project-name | snake_case}}.css"/>
         <Meta name="description" content="A website running its server-side as a WASI Component :D"/>
 
         <Title text="Welcome to Leptos X Spin!"/>
@@ -38,8 +38,8 @@ pub fn App() -> impl IntoView {
         <Router>
             <main>
                 <Routes fallback>
-                    <Route path=path!("") view=HomePage/>
-                    <Route path=path!("/*any") view=NotFound/>
+                    <Route path=path!("{{http-path}}") view=HomePage/>
+                    <Route path=path!("{{http-path}}/*any") view=NotFound/>
                 </Routes>
             </main>
         </Router>
@@ -85,7 +85,7 @@ fn NotFound() -> impl IntoView {
     view! { <h1>"Not Found"</h1> }
 }
 
-#[server]
+#[server(prefix = "{{http-path}}/api")]
 pub async fn save_count(count: u32) -> Result<(), ServerFnError<String>> {
     println!("Saving value {count}");
     let store = spin_sdk::key_value::Store::open_default().map_err(|e| e.to_string())?;
