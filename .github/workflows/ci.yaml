@@ -1,0 +1,39 @@
+name: "CI"
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+env:
+  RUST_VERSION: "1.80.1"
+  SPIN_VERSION: ""
+jobs:
+  spin:
+    runs-on: "ubuntu-latest"
+    name: Build Spin App
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "${{ env.RUST_VERSION }}"
+          targets: wasm32-wasip1,wasm32-unknown-unknown
+      - name: Install Spin
+        uses: fermyon/actions/spin/setup@v1
+        with:
+          plugins: 
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.10.16
+      - name: Install cargo-leptos
+        run: cargo binstall cargo-leptos@0.2.22
+      - name: Install leptos-ssr template
+        run: spin templates install --dir . --upgrade
+        working-directory: .
+      - name: Create app with template
+        run: spin new -t leptos-ssr my-leptos-app -a
+        working-directory: .
+      - name: Build app
+        run: spin build
+        working-directory: ./my-leptos-app
