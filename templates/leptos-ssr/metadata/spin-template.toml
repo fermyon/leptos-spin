@@ -5,4 +5,9 @@ tags = ["http", "rust", "leptos"]
 
 [parameters]
 project-description = { type = "string",  prompt = "Description", default = "" }
-http-path = { type = "string", prompt = "HTTP path", default = "/...", pattern = "^/\\S*$" }
+http-path = { type = "string", prompt = "HTTP path (if provided, should start with '/' and not end with '/')", default = "", pattern = "^$|^/\\S+$" }
+
+[add_component]
+skip_files = ["spin.toml"]
+[add_component.snippets]
+component = "component.txt"
