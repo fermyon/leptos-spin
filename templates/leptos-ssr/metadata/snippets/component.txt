@@ -1,21 +1,14 @@
-spin_manifest_version = 2
-
-[application]
-name = "{{project-name}}"
-version = "0.1.0"
-authors = ["{{authors}}"]
-description = "{{project-description}}"
-
 [[trigger.http]]
 route = "{{http-path | http_wildcard}}"
 component = "{{project-name | kebab_case}}"
 
 [component.{{project-name | kebab_case}}]
-source = "target/wasm32-wasip1/release/{{project-name | snake_case}}.wasm"
+source = "{{output-path}}/target/wasm32-wasip1/release/{{project-name | snake_case}}.wasm"
 allowed_outbound_hosts = []
 key_value_stores = ["default"]
 [component.{{project-name | kebab_case}}.build]
 command = "cargo leptos build --release && LEPTOS_OUTPUT_NAME={{project-name | snake_case}} cargo build --lib --target wasm32-wasip1 --release --no-default-features --features ssr"
+workdir = "{{output-path}}"
 watch = ["src/**/*.rs", "Cargo.toml"]
 
 [[trigger.http]]
@@ -24,4 +17,4 @@ component = "{{project-name | kebab_case}}-pkg"
 
 [component.{{project-name | kebab_case}}-pkg]
 source = { url = "https://github.com/fermyon/spin-fileserver/releases/download/v0.1.0/spin_static_fs.wasm", digest = "sha256:96c76d9af86420b39eb6cd7be5550e3cb5d4cc4de572ce0fd1f6a29471536cb4" }
-files = [{ source = "target/site/pkg", destination = "/" }]
+files = [{ source = "{{output-path}}/target/site/pkg", destination = "/" }]
